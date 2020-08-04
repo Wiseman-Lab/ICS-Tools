@@ -1,6 +1,4 @@
-# image-correlation
-
-**Wiseman Lab Repo for Image Correlation Techniques**
+# **Wiseman Lab Repo for Image Correlation Techniques**
 
 ## Repo structure
 This repo contains an `archive` with previous legacy versions of the code.

@@ -29,13 +29,13 @@ end
 sv(croped1,'c',5)
 %% run STICS
 % define a new directory in which STICS outputs will be saved
-mkdir([opt.pathin '20200618'])
-opt.path =[opt.pathin '20200618\'];
+mkdir([opt.pathin '1_1_1_mCit-201005'])
+opt.path =[opt.pathin '1_1_1_mCit-201005\'];
 [velocityMap,position_x, position_y,position_t,opt]=stics_vectormapping(croped1,opt);
 %% LOADING STICS RESULTS (if they are not already in workspace)
-opt.pathin='C:\Users\Rodrigo Migueles\OneDrive - McGill University\Data\Mandl\20191108\';
-opt.path =[opt.pathin '20200618\']; 
-load([opt.path 'VelocityMap20171108-00-02_20200618.mat']);
+opt.pathin='D:\Data\200926\tiff_stacks\1_1_1\';
+opt.path =[opt.pathin '1_1_1_mCit-201005\']; 
+load([opt.path 'VelocityMap200926-01_201005.mat']);
 %% DISPLAY VECTOR MAPS
 % This defines at what velocity um/min do you want to threshold your vector
 % maps...set = Inf, if you do not want to threshold. Thresholding will set
@@ -43,14 +43,14 @@ load([opt.path 'VelocityMap20171108-00-02_20200618.mat']);
 % The suggested value would be the theoretically maximal possible flow
 % speed that one can extract for a given ROI size, pixels size, frame time
 opt.thresholdV=((sqrt((opt.ROIsize^2)/2))*opt.pixelSize/(opt.timeFrame*opt.tauLimit))*60; %um/min
-opt.timerDisplay ='LL' % option for placing the timer in the movie/images
+opt.timerDisplay ='LL'; % option for placing the timer in the movie/images
 %'LR'=lower right corner, 'UR'=upper right, 'LL'=lower left corner and
 %'UL'=upperleft...if set to anything else than no timer is displayed in
 %output maps and movie
 % Here specify how often do you want to save the images of maps...in case
 % you do not want to save them all 
-load('C:\Users\Rodrigo Migueles\OneDrive - McGill University\Data\Mandl\20191108\20200618\VelocityMap20171108-00-02_20200618.mat');
-opt.OutputEvery=50;
+% load('C:\Users\Rodrigo Migueles\OneDrive - McGill University\Data\Mandl\20191108\20200618\VelocityMap20171108-00-02_20200618.mat');
+opt.OutputEvery = 10;
 velocityMap=plotSingleVectorMapOnImage(velocityMap,position_t,position_x,position_y,opt);
 %% PLOT VELOCITY MAGNITUDE HISTOGRAM 
 opt.thresholdV=Inf;

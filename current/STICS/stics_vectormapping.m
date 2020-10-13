@@ -16,8 +16,8 @@ if nargin==1
 end
 
 
-if ~isfield(opt, 'pixelSize'), opt.pixelSize = 0.072; end %pixel size in um
-if ~isfield(opt, 'timeFrame'), opt.timeFrame = 1.92; end %time delay (s) between subsequent frames
+if ~isfield(opt, 'pixelSize'), opt.pixelSize = 0.14; end %pixel size in um
+if ~isfield(opt, 'timeFrame'), opt.timeFrame = 10; end %time delay (s) between subsequent frames
 if ~isfield(opt, 'tauLimit'), opt.tauLimit = 60; end % what is highest time lag to compute stics of TO
 %filtering: choose 'FourierWhole','MovingAverage','butterIIR','none'
 if ~isfield(opt, 'filtering'), opt.filtering = 'FourierWhole'; end
@@ -30,9 +30,9 @@ if ~isfield(opt, 'ROIsize'), opt.ROIsize = 16; end % ROI size in pixels
 if ~isfield(opt, 'ROIshift'), opt.ROIshift = 4; end %what is ROI centers shift in pixels
 if ~isfield(opt, 'TOIsize'), opt.TOIsize = 5; end % what is TOI size in frames
 if ~isfield(opt, 'TOIshift'), opt.TOIshift = 1; end %how much is TOI shifted
-if ~isfield(opt, 'axisTitle'), opt.axisTitle = '20171108-00-02'; end %what will be used on vector map title
-if ~isfield(opt, 'outputName'), opt.outputName = '20171108-00-02_20200618'; end %output file name
-if ~isfield(opt, 'path'), opt.path ='C:\Users\Rodrigo Migueles\OneDrive - McGill University\Science\Research\Actin\Analysis\20200618'; end
+if ~isfield(opt, 'axisTitle'), opt.axisTitle = '200926-01'; end %what will be used on vector map title
+if ~isfield(opt, 'outputName'), opt.outputName = '200926-01_201005'; end %output file name
+if ~isfield(opt, 'path'), opt.path ='D:\Data\200926'; end
 if ~isfield(opt, 'exportimages'), opt.exportimages ='y'; end %'y' if you want export a pdf of every vector map, 'n' if you do not
 if ~isfield(opt, 'imagesformat'), opt.imagesformat ='png'; end % 'png' or 'pdf' images...can add other option (formats) in plotSingleVectorMap code
 if ~isfield(opt, 'movieformat'), opt.movieformat ='mp4'; end % movie format can be avi, jpeg or mp4

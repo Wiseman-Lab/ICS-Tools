@@ -1,5 +1,5 @@
 function [imageseries, pixelsize, timesize] = pbsimulator()
-%GUI THIS: totalsize,pixelsize,frames, timesize, bleaching constant,densities, agg, psf
+%Kobi Pollard 2021
 
  prompt = {'Total Size (pixels)','Pixel Size (um)','Frames','Timesize (s)','Bleaching Constant (k)','Densities (arbitrary units)','Oligimerization (comma separated)','PSF (um)'};
     dlg_title = 'Enter Simulation Parameters';

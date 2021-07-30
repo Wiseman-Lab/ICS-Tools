@@ -1,4 +1,4 @@
-function [velocityMap, position_x, position_y, position_t, opt] = stics_vectormapping(series, opt)
+function [velocityMap, position_x, position_y, position_t, opt] = stics_vectormapping_2(series, opt)
 %this functions takes the timeseries and calculates for defined regions of
 %size 'ROIsize' and 'TOIsize' stics correlation function and fits symmetric
 %Gaussian to extract the flow in x and y directions...

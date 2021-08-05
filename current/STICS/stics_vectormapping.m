@@ -30,12 +30,15 @@ if ~isfield(opt, 'ROIsize'), opt.ROIsize = 16; end % ROI size in pixels
 if ~isfield(opt, 'ROIshift'), opt.ROIshift = 4; end %what is ROI centers shift in pixels
 if ~isfield(opt, 'TOIsize'), opt.TOIsize = 5; end % what is TOI size in frames
 if ~isfield(opt, 'TOIshift'), opt.TOIshift = 1; end %how much is TOI shifted
+
+%{
 if ~isfield(opt, 'axisTitle'), opt.axisTitle = '200926-01'; end %what will be used on vector map title
 if ~isfield(opt, 'outputName'), opt.outputName = '200926-01_201005'; end %output file name
 if ~isfield(opt, 'path'), opt.path ='D:\Data\200926'; end
 if ~isfield(opt, 'exportimages'), opt.exportimages ='y'; end %'y' if you want export a pdf of every vector map, 'n' if you do not
 if ~isfield(opt, 'imagesformat'), opt.imagesformat ='png'; end % 'png' or 'pdf' images...can add other option (formats) in plotSingleVectorMap code
 if ~isfield(opt, 'movieformat'), opt.movieformat ='mp4'; end % movie format can be avi, jpeg or mp4
+%}
 
 
 % shift of ROI's amount & define the position of ROI-TOI
@@ -78,20 +81,37 @@ elseif strcmp(answer,'n')
     maskCell=ones(size(series,1),size(series,2));
 end
 close
+
+
 postouse=zeros(along_x,along_y);
-for w=1:along_x
-for s=1:along_y
-  indx=1+(w-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((w-1)/fracROIshift)));
-  indy=1+(s-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((s-1)/fracROIshift))); 
-  indx = floor(indx);
-  indy = floor(indy);
-if(maskCell(indx,indy)==1)
-postouse(w,s)=1;
+
+% Fixed unnecessary overhead communication
+ROIsize = opt.ROIsize; 
+ROIshift = opt.ROIshift;
+TOIsize = opt.TOIsize;
+tauLimit = opt.tauLimit;
+pixelSize = opt.pixelSize;
+fitRadius = opt.fitRadius;
+omegaThreshold = opt.omegaThreshold;
+threshVector = opt.threshVector;
+timeFrame = opt.timeFrame;
+
+parfor w=1:along_x
+    for s=1:along_y
+        indx=1+(w-1)/fracROIshift*ROIsize:(ROIsize*(1+((w-1)/fracROIshift)));
+        indy=1+(s-1)/fracROIshift*ROIsize:(ROIsize*(1+((s-1)/fracROIshift))); 
+        indx = floor(indx);
+        indy = floor(indy);
+      
+        if(maskCell(indx,indy)==1)
+            postouse(w,s)=1;
+        end
+    end
 end
-end
-end
+
 opt.postouse=postouse;
 opt.maskCell=maskCell;
+
 %immobile filter data if necessary
 if strcmp(opt.filtering,'FourierWhole')
     series= immfilter(series,'F',1); 
@@ -107,58 +127,72 @@ else
 end
 
 % %indexes of ROI within the mask of interest (polygon)
-[iroi jroi]=find(postouse);
+[iroi, jroi]=find(postouse);
+
+%{
+% Create progress dialogue
+progressFig = uifigure;
+progressTitle = 'Please Wait.';
+progressMessage = 'Running...';
+progressDlg = uiprogressdlg(progressFig, 'Title', progressTitle, 'Message', progressMessage);
+%}
+
+% Initialize velocityMap
+velocityMap{1, along_t}.data_raw = [];
 
 for k=1:along_t % loop along time
     % position of TOI centers in time
-    position_t(k) = 1/2 + (k-1)/fracTOIshift*opt.TOIsize + opt.TOIsize/2;
+    position_t(k) = 1/2 + (k-1)/fracTOIshift*TOIsize + TOIsize/2;
     % define whole FOV TOI
     
-    TOIFOV=series(:,:,floor(1+(k-1)/fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/fracTOIshift))));
+    TOIFOV=series(:,:,floor(1+(k-1)/fracTOIshift*TOIsize):floor(TOIsize*(1+((k-1)/fracTOIshift))));
     % define the average FOV TOI image that will be used in the display of the vector maps
     velocityMap{k}.data_raw=mean(TOIFOV,3);
     
     tStart = tic; % 
     fprintf('analyzing TOI %i of %i ____ date and time is %s',k,along_t,datestr(now)); 
     
-      for u=1:length(iroi) %accessing the data of only 
+    %{
+    % Update progress bar
+    progressDlg.Value = k / along_t;
+    pause(0.2);
+    %}
+    
+    for u=1:length(iroi) %accessing the data of only 
      %the ROI that are defined within the selected polygon
+     
          i=iroi(u);
          j=jroi(u);
             %define region (x,y,t) on which stics will be applied
-            regionanalyse=TOIFOV((1+(i-1)/fracROIshift*opt.ROIsize):(opt.ROIsize*(1+((i-1)/fracROIshift))),(1+(j-1)/fracROIshift*opt.ROIsize):(opt.ROIsize*(1+((j-1)/fracROIshift))),:);
+            regionanalyse=TOIFOV((1+(i-1)/fracROIshift*ROIsize):(ROIsize*(1+((i-1)/fracROIshift))),(1+(j-1)/fracROIshift*ROIsize):(ROIsize*(1+((j-1)/fracROIshift))),:);
            
             %apply regular cross-corr stics
-            [corrfn]=stics(regionanalyse,opt.tauLimit);
+            [corrfn]=stics(regionanalyse,tauLimit);
             %[i j k]
          
             %fit vxtau and vytau vs tau linearly to extract vx and vy
-            if size(corrfn,3)>1 && size(corrfn,1)==opt.ROIsize && size(corrfn,2)==opt.ROIsize % second two arguments added MM because of error when corrfn size is strange
+            if size(corrfn,3)>1 && size(corrfn,1)==ROIsize && size(corrfn,2)==ROIsize % second two arguments added MM because of error when corrfn size is strange
                 %do plain symmetric gaussian fit to data
-                [coeffGtime] = gaussfit(corrfn,'time',opt.pixelSize,'n',opt.fitRadius);
+                [coeffGtime] = gaussfit(corrfn,'time',pixelSize,'n',fitRadius);
                 velocityMap{k}.coeffGtime=coeffGtime;
                 % Discards some lags of the correlation functions if they have
                 % fitted omegas larger than a threshold
                 %cutOff =max([1 min([find(coeffGtime(:,2)>opt.omegaThreshold,1,'first') find(coeffGtime(:,3)>opt.omegaThreshold,1,'first')]) ]);
-                cutOff =max(1,min([find(coeffGtime(:,2)>opt.omegaThreshold,1,'first') find(coeffGtime(:,3)>opt.omegaThreshold,1,'first')]));
+                cutOff =max(1,min([find(coeffGtime(:,2)>omegaThreshold,1,'first') find(coeffGtime(:,3)>omegaThreshold,1,'first')]));
                 
                 % set beam waists above cutoff to zero so you can
                 % see where it got cut off
                 coeffGtime(cutOff:end,2:3) = 0;
                 % crop time corr as well
                 %corrfn(:,:,cutOff:end) = 0;
-                velocityMap{k}.Px(u,2:-1:1) = polyfit(opt.timeFrame*(1:size(corrfn,3)),squeeze(coeffGtime(1:size(corrfn,3),5))',1);
-                velocityMap{k}.Py(u,2:-1:1) = polyfit(opt.timeFrame*(1:size(corrfn,3)),squeeze(coeffGtime(1:size(corrfn,3),6))',1);
+                velocityMap{k}.Px(u,2:-1:1) = polyfit(timeFrame*(1:size(corrfn,3)),squeeze(coeffGtime(1:size(corrfn,3),5))',1);
+                velocityMap{k}.Py(u,2:-1:1) = polyfit(timeFrame*(1:size(corrfn,3)),squeeze(coeffGtime(1:size(corrfn,3),6))',1);
             else
               
                 velocityMap{k}.Px(u,1:2) =NaN;
                 velocityMap{k}.Py(u,1:2) =NaN;
             end
-
-      end % end for indx
-    
-    
-    
+    end % end for indx
     
     
     % remove bad vectors for each vector map
@@ -168,26 +202,28 @@ for k=1:along_t % loop along time
     posy=posy(1:size(posy,1)*size(posy,2));
     vx=nan(size(position_x));
     vy=nan(size(position_y));
+    
     for u=1:length(iroi)
         i=iroi(u);
         j=jroi(u);
-    vy(i,j)=squeeze(velocityMap{k}.Py(u,2));
-    vx(i,j)=squeeze(velocityMap{k}.Px(u,2));
+        vy(i,j)=squeeze(velocityMap{k}.Py(u,2));
+        vx(i,j)=squeeze(velocityMap{k}.Px(u,2));
     end
+    
     velocityMap{k}.vx=vx;
     velocityMap{k}.vy=vy;
     vy=vy(1:size(vy,1)*size(vy,2));
     vx=vx(1:size(vx,1)*size(vx,2));
-    goodVectorsx = vectorOutlier(posx',posy',vx,opt.ROIshift,opt.threshVector);
-    goodVectorsy = vectorOutlier(posx',posy',vy,opt.ROIshift,opt.threshVector);
+    goodVectorsx = vectorOutlier(posx',posy',vx,ROIshift,threshVector);
+    goodVectorsy = vectorOutlier(posx',posy',vy,ROIshift,threshVector);
     
-    velocityMap{k}.goodVectors = (goodVectorsx & goodVectorsy)' & (~isnan(vx) & ~isnan(vy)); clear goodVectorsx goodVectorsy
+    velocityMap{k}.goodVectors = (goodVectorsx & goodVectorsy)' & (~isnan(vx) & ~isnan(vy)); %clear goodVectorsx goodVectorsy
     % Throw out vectors whose magnitude is greater than 3 std devs
     % away from the mean
     for m=1:2 % run twice!
         magnitudesPerSec = sqrt(vx(velocityMap{k}.goodVectors).^2+vy(velocityMap{k}.goodVectors).^2);
         badVectors = find(abs(sqrt(vx.^2+vy.^2)-mean(magnitudesPerSec))>(std(magnitudesPerSec)*3));
-        velocityMap{k}.goodVectors(badVectors) = 0; %#ok<FNDSB>
+        velocityMap{k}.goodVectors(badVectors) = 0; %%#ok<FNDSB>
     end
     
     
@@ -196,13 +232,14 @@ for k=1:along_t % loop along time
     
 end
 
-
+%{
 % output data to file
 save([opt.path 'VelocityMap' opt.outputName '.mat'],'velocityMap');
 save([opt.path 'VelocityMap' opt.outputName '.mat'],'position_x','-append');
 save([opt.path 'VelocityMap' opt.outputName '.mat'],'position_y','-append');
 save([opt.path 'VelocityMap' opt.outputName '.mat'],'position_t','-append');
 save([opt.path 'VelocityMap' opt.outputName '.mat'],'opt','-append');
+%}
 
 end 
 

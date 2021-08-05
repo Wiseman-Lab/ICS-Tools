@@ -36,10 +36,17 @@ if length(varargin)==2
     %SeriesMean = squeeze(mean(mean(imgser)));
     fftStack = double(zeros(size(imgser)));
     imageMean = squeeze(mean(mean(imgser,1),2));
-     imageMean(find(imageMean==0))=10^-12;    
+    imageMean(find(imageMean==0))=10^-12;
+    
+    %{
     for i = 1:size(imgser,3)
         fftStack(:,:,i) = fft2(double(imgser(:,:,i)));
     end
+    %}
+    
+    % Vectorized
+    i=1:size(imgser,3);
+    fftStack(:,:,i) = fft2(double(imgser(:,:,i)));
   
     for tau = 0:upperTauLimit-1
         lagcorr = zeros(size(imgser,1),size(imgser,2),(size(imgser,3)-tau));
@@ -81,8 +88,8 @@ elseif length(varargin)==3
     fftStack2 = double(zeros(size(imgser2)));
     imageMean1 = squeeze(mean(mean(imgser1,1),2));
     imageMean2 = squeeze(mean(mean(imgser2,1),2));
-     imageMean1(find(imageMean1==0))=10^-12; 
-      imageMean2(find(imageMean2==0))=10^-12;
+    imageMean1(find(imageMean1==0))=10^-12; 
+    imageMean2(find(imageMean2==0))=10^-12;
     % Calculates FFTs only once to save time
     % Might cause memory problems for huge data sets
     for i = 1:size(imgser1,3)

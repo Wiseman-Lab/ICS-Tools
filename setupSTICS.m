@@ -83,7 +83,13 @@ if nargin == 0
 
         if ~sameData
             options(run).pixelSize = input('Pixel size (um) = ');
-            options(run).timeFrame = input('Interval between frames (s) = ');
+            options(run).timeFrame = input(['Interval between frames = ']);
+            timeInSec = input('Is that in seconds? Otherwise, enter 0. ');
+            if timeInSec
+                options(run).TimeUnits = 'sec';                
+            else
+                options(run).TimeUnits = 'min';                                
+            end
         end
         if options(run).STICCS, options(run).timeDelay = input('Time between channels (s)'); end
 
@@ -109,10 +115,27 @@ if nargin == 0
 %% Polygon mask        
         polygonMask = input('Do you want to select a polygon area? ');
         if polygonMask
-            if options(run).STICCS
-                options(run).maskCell = selectCellMaskFromAverageImage(series1, series2);
+            dynamicMask = input('Do you want to mask each frame?');
+            if dynamicMask
+                [mask_Name, mask_Path] = uigetfile("*.mat", ['Select Mask File for run #', num2str(run), ', Channel 1']);
+                options(run).dynamicMask{1,1} = load([mask_Path, mask_Name]);
+                for  i = 1:size(series1, 3)
+                    options(run).maskCell(:,:,i) = options(run).dynamicMask{1,1}.maskFinal{1,i};
+                end
+                
+%                 if options(run).STICCS
+%                     [mask_Name, mask_Path] = uigetfile("*.mat", ['Select Mask File for run #', num2str(run), ', Channel 2']);
+%                     options(run).dynamicMask{1,2} = load([mask_Path, mask_Name]);  
+%                     for  i = 1:size(series2, 3)
+%                         options(run).maskCell(:,:,i) = options(run).dynamicMask{1,2}.maskFinal{1,i};
+%                     end                    
+%                 end
             else
-                options(run).maskCell = selectCellMaskFromAverageImage(series1);
+                if options(run).STICCS
+                    options(run).maskCell = selectCellMaskFromAverageImage(series1, series2);
+                else
+                    options(run).maskCell = selectCellMaskFromAverageImage(series1);
+                end
             end
         else
             options(run).maskCell = ones(size(series1, 1), size(series1, 2));
@@ -120,7 +143,12 @@ if nargin == 0
 
 %% Immobile fraction removal        
         immobileFilters = categorical({'FourierWhole','MovingAverage','butterIIR','none'});
-        options(run).filtering = input("Select an immobile substraction algorithm: 'FourierWhole','MovingAverage','butterIIR' or 'none': ");
+        useFilter = input('Apply Immobile Filter?');
+        if useFilter
+            options(run).filtering = input("Select an immobile substraction algorithm: 'FourierWhole','MovingAverage' or 'butterIIR': ");
+        else 
+            options(run).filtering = 'none';
+        end
         if strcmpi(options(run).filtering, 'MovingAverage')
             options(run).MoveAverage = input("Moving average window size (frames): ");
             while mod(options(run).MoveAverage, 2) == 0
@@ -142,24 +170,37 @@ if nargin == 0
         options(run).TOIshift = input(['TOI shift for run #', num2str(run), ' = ']);        
         
 % Fit options
-        options(run).tauLimit = input(['Tau limit for run #', num2str(run), ' = ']);% was 30
-        options(run).fitRadius = input(['Maximum fit radius for run #', num2str(run),' = ']);% was 32
+        options(run).tauLimit = input(['Tau limit (max = ' num2str(options(run).TOIsize) ') for run #', num2str(run), ' = ']);% was 30
+        options(run).fitRadius = input(['Maximum fit radius (max = ', num2str(options(run).ROIsize/2), ', units = px) for run #', num2str(run),' = ']);% was 32
 
 % Filtering options
-        options(run).omegaThreshold = input(['Omega Threshold for run #', num2str(run), ' = ']);% was 100
-        options(run).threshVector = input(['Orientation vector threshold for run #', num2str(run), ' = ']);%was 16 Maximum orientation deviation among neighbouring vectors
+        options(run).maxHalfWidth = input(['Max Width (suggestion = ', num2str(options(run).pixelSize*options(run).ROIsize/4), ') for run #', num2str(run), ' = ']);% was 100
+        options(run).threshVector = 5; %input(['STD vector threshold for run #', num2str(run), ' = ']);%was 16 Maximum orientation deviation (in standard deviations) among neighbouring vectors
+        options(run).maxV = Inf; %input(['Maximum Velocity permitted for run #', num2str(run), ' = ']);
 
 % Plotting options
-        disp(['Suggestion: ', options(run).fileName{1}, ...
-        '_',num2str(options(run).ROIsize), 'x', num2str(options(run).ROIshift), '_', ...
-        num2str(options(run).TOIsize), 'x', num2str(options(run).TOIshift), '_t', num2str(options(run).tauLimit),  ...
-        'r', num2str(options(run).fitRadius), 'o', num2str(options(run).omegaThreshold ), ...
-        'v', num2str(options(run).threshVector)]);
-        options(run).axisTitle = input('Axis title = ');
-        options(run).outputName = input('Output filename = ');
+        titleSuggestion = [options(run).fileName{1}, ...
+            '_',num2str(options(run).ROIsize), 'x', num2str(options(run).ROIshift), '_', ...
+            num2str(options(run).TOIsize), 'x', num2str(options(run).TOIshift), '_t', num2str(options(run).tauLimit),  ...
+            'r', num2str(options(run).fitRadius), 'w', num2str(options(run).maxHalfWidth ), ...
+            'sd', num2str(options(run).threshVector), 'v', num2str(options(run).maxV)];
+        acceptTitle = input(['Title: ', titleSuggestion, ' OK?']);
+        if acceptTitle
+            options(run).axisTitle = titleSuggestion; display(['Axis title = ', titleSuggestion]);
+            options(run).outputName = titleSuggestion; display(['Output filename = ', titleSuggestion]);
+        else
+            options(run).axisTitle = input('Axis title = ');
+            options(run).outputName = input('Output filename = ');            
+        end
         options(run).path = input('Output path = '); %
-        disp('Please select a background image (''Original'', ''TOI mean'' or "Other")');
-        options(run).bgImage = input('Background image = ');
+        
+        TOImeanBackground = input('Use TOI mean for background?');
+        if TOImeanBackground
+            options(run).bgImage = 'TOI mean';
+        else
+            disp('Please select a background image (''Original'', ''TOI mean'' or "Other")');
+            options(run).bgImage = input('Background image = ');
+        end
         if strcmp(options(run).bgImage, 'Other')
             [bg_file_id, bg_file_path] = uigetfile("*", ['Select the file to display in the background for run #', num2str(run)]);
             options(run).bg_fileName{1} = bg_file_id(1:end-4);
@@ -186,7 +227,7 @@ if nargin == 0
         if ~isfield(options(run), 'filtering'), options(run).filtering ='FourierWhole'; end 
         if ~isfield(options(run), 'MoveAverage'), options(run).MoveAverage = 21; end
         if ~isfield(options(run), 'fitRadius'), options(run).fitRadius = 5; end  % how many pixels (radius) are considered around the peak of corr fn when fitting 2D Gaussian 
-        if ~isfield(options(run), 'omegaThreshold'), options(run).omegaThreshold = 15; end % how big (pixels) do you allow the radius of corr fn to be...removes wide corr fns...
+        if ~isfield(options(run), 'maxHalfWidth'), options(run).maxHalfWidth = 15; end % how big (pixels) do you allow the radius of corr fn to be...removes wide corr fns...
         if ~isfield(options(run), 'threshVector'), options(run).threshVector = 8; end % what is the threshold delta(v) (um/s) used in discarding spurious vectors
         %if ~isfield(opt, 'threshVectorDotProd'), opt.threshVectorDotProd = 0.5; end
         if ~isfield(options(run), 'ROIsize'), options(run).ROIsize = 16; end % ROI size in pixels
@@ -194,10 +235,10 @@ if nargin == 0
         if ~isfield(options(run), 'TOIsize'), options(run).TOIsize = 60; end % what is TOI size in frames
         if ~isfield(options(run), 'TOIshift'), options(run).TOIshift = 1; end %how much is TOI shifted
         if ~isfield(options(run), 'axisTitle'), options(run).axisTitle = [options(run).fileName{1}, ...
-        '_',num2str(options(run).ROIsize), 'x', num2str(options(run).ROIshift), '_', ...
-        num2str(options(run).TOIsize), 'x', num2str(options(run).TOIshift), '_t', num2str(options(run).tauLimit),  ...
-        'r', num2str(options(run).fitRadius), 'o', num2str(options(run).omegaThreshold ), ...
-        'v', num2str(options(run).threshVector)]; 
+            '_',num2str(options(run).ROIsize), 'x', num2str(options(run).ROIshift), '_', ...
+            num2str(options(run).TOIsize), 'x', num2str(options(run).TOIshift), '_t', num2str(options(run).tauLimit),  ...
+            'r', num2str(options(run).fitRadius), 'w', num2str(options(run).maxHalfWidth ), ...
+            'sd', num2str(options(run).threshVector), 'v', num2str(opt.maxV)]; 
         end %what will be used on vector map title
         if ~isfield(options(run), 'outputName'), options(run).outputName = options(run).axisTitle; end%'Velocity Map'; end %output file name
 %         if ~isfield(options(run), 'path'), options(run).path ='C:\Users\YOGA-PW\Dropbox (Wiseman Research)\Data_Elvis\STICCSOutput'; end

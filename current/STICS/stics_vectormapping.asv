@@ -87,7 +87,7 @@ close
 
 postouse=zeros(along_x,along_y);
 
-if ~isfield(opt, 'maskCell'), opt.maskCell = ones(size(series, 1), size(series, 2)); end
+if ~isfield(opt, 'maskCell'), opt.maskCell = ones(size(series, 1), size(st, 2)); end
 
 if (size(opt.maskCell,3) == 1)  
     % Static mask

@@ -31,16 +31,6 @@ if ~isfield(opt, 'ROIshift'), opt.ROIshift = 4; end %what is ROI centers shift i
 if ~isfield(opt, 'TOIsize'), opt.TOIsize = 5; end % what is TOI size in frames
 if ~isfield(opt, 'TOIshift'), opt.TOIshift = 1; end %how much is TOI shifted
 
-%{
-if ~isfield(opt, 'axisTitle'), opt.axisTitle = '200926-01'; end %what will be used on vector map title
-if ~isfield(opt, 'outputName'), opt.outputName = '200926-01_201005'; end %output file name
-if ~isfield(opt, 'path'), opt.path ='D:\Data\200926'; end
-if ~isfield(opt, 'exportimages'), opt.exportimages ='y'; end %'y' if you want export a pdf of every vector map, 'n' if you do not
-if ~isfield(opt, 'imagesformat'), opt.imagesformat ='png'; end % 'png' or 'pdf' images...can add other option (formats) in plotSingleVectorMap code
-if ~isfield(opt, 'movieformat'), opt.movieformat ='mp4'; end % movie format can be avi, jpeg or mp4
-%}
-
-
 % shift of ROI's amount & define the position of ROI-TOI
 fracROIshift=opt.ROIsize/opt.ROIshift;
 fracTOIshift=opt.TOIsize/opt.TOIshift;
@@ -52,38 +42,6 @@ along_t = floor((size(series,3)-opt.TOIsize)/opt.TOIshift)+1;
 position_x  =   zeros(1,along_x);
 position_y  =   zeros(1,along_y);
 position_t  =   zeros(1,along_t);
-% defining all of the ROI centers positons in x and y
-for i=1:along_x
-position_x(i) = 1/2 + (i-1)/fracROIshift*opt.ROIsize + opt.ROIsize/2;
-end
-position_x=repmat(position_x,along_y,1);
-position_x=position_x';
-for j=1:along_y
-position_y(j) = 1/2 + (j-1)/fracROIshift*opt.ROIsize + opt.ROIsize/2;
-end
-position_y=repmat(position_y,along_x,1);
-
-%pre-process to determine if you want to analyse the whole FOV or select a
-%polygon to analyze...in case of polygon, it will speed up the whole
-%calculations because less ROI-TOI to consider...
-imagesc(mean(series,3)) 
-prompt = {'want to select the polygon or use whole FOV?'};
-    dlg_title = 'y or n';
-    num_lines = 1;
-    def = {'y'};
-    answer = inputdlg(prompt,dlg_title,num_lines,def);
-if strcmp(answer,'y')
-maskCell=[];
-while isempty(maskCell)
-    [x,y,maskCell,poly1.x,poly1.y]=roipoly;
-end
-elseif strcmp(answer,'n')
-    maskCell=ones(size(series,1),size(series,2));
-end
-close
-
-
-postouse=zeros(along_x,along_y);
 
 % Fixed unnecessary overhead communication
 ROIsize = opt.ROIsize; 
@@ -96,7 +54,39 @@ omegaThreshold = opt.omegaThreshold;
 threshVector = opt.threshVector;
 timeFrame = opt.timeFrame;
 
-parfor w=1:along_x
+% defining all of the ROI centers positons in x and y
+% Vectorized by Michael Lu
+i = 1:along_x;
+position_x(i) = 1/2 + (i-1)/fracROIshift*ROIsize + ROIsize/2;
+position_x=repmat(position_x,along_y,1);
+position_x=position_x';
+
+j = 1:along_y;
+position_y(j) = 1/2 + (j-1)/fracROIshift*ROIsize + ROIsize/2;
+position_y=repmat(position_y,along_x,1);
+
+%pre-process to determine if you want to analyse the whole FOV or select a
+%polygon to analyze...in case of polygon, it will speed up the whole
+%calculations because less ROI-TOI to consider...
+imagesc(mean(series,3)) 
+answer = questdlg('Do you want to select a polygon region?', ...
+	'Choosing FOV', ...
+	'Yes','No','Yes');
+
+if strcmp(answer,'Yes')
+    maskCell=[];
+    while isempty(maskCell)
+        [x,y,maskCell,poly1.x,poly1.y]=roipoly;
+    end
+else
+    maskCell=ones(size(series,1),size(series,2));
+end
+
+close
+
+postouse=zeros(along_x,along_y);
+
+for w=1:along_x
     for s=1:along_y
         indx=1+(w-1)/fracROIshift*ROIsize:(ROIsize*(1+((w-1)/fracROIshift)));
         indy=1+(s-1)/fracROIshift*ROIsize:(ROIsize*(1+((s-1)/fracROIshift))); 
@@ -126,21 +116,27 @@ else
     error('Please select a valid filter (''FourierWhole'' ,''MovingAverage'' , ''butterIIR'' or ''none'')');
 end
 
+
+
+% Maybe: Save static info to classes an import inside (to reduce overhead time)
+
 % %indexes of ROI within the mask of interest (polygon)
 [iroi, jroi]=find(postouse);
-
-%{
-% Create progress dialogue
-progressFig = uifigure;
-progressTitle = 'Please Wait.';
-progressMessage = 'Running...';
-progressDlg = uiprogressdlg(progressFig, 'Title', progressTitle, 'Message', progressMessage);
-%}
 
 % Initialize velocityMap
 velocityMap{1, along_t}.data_raw = [];
 
-for k=1:along_t % loop along time
+curr_dir = pwd;
+if (exist([curr_dir '/parfor_progressbar'], 'dir') == 7)
+    addpath('parfor_progressbar');
+end
+
+%ppb = ParforProgressbar(along_t);
+
+parfor k=1:along_t % loop along time
+    %pause(100/numIterations);
+    %ppb.increment();
+         
     % position of TOI centers in time
     position_t(k) = 1/2 + (k-1)/fracTOIshift*TOIsize + TOIsize/2;
     % define whole FOV TOI
@@ -152,15 +148,8 @@ for k=1:along_t % loop along time
     tStart = tic; % 
     fprintf('analyzing TOI %i of %i ____ date and time is %s',k,along_t,datestr(now)); 
     
-    %{
-    % Update progress bar
-    progressDlg.Value = k / along_t;
-    pause(0.2);
-    %}
-    
     for u=1:length(iroi) %accessing the data of only 
      %the ROI that are defined within the selected polygon
-     
          i=iroi(u);
          j=jroi(u);
             %define region (x,y,t) on which stics will be applied
@@ -194,7 +183,6 @@ for k=1:along_t % loop along time
             end
     end % end for indx
     
-    
     % remove bad vectors for each vector map
     posx=squeeze(position_x);
     posx=posx(1:size(posx,1)*size(posx,2));
@@ -219,27 +207,21 @@ for k=1:along_t % loop along time
     
     velocityMap{k}.goodVectors = (goodVectorsx & goodVectorsy)' & (~isnan(vx) & ~isnan(vy)); %clear goodVectorsx goodVectorsy
     % Throw out vectors whose magnitude is greater than 3 std devs
-    % away from the mean
-    for m=1:2 % run twice!
-        magnitudesPerSec = sqrt(vx(velocityMap{k}.goodVectors).^2+vy(velocityMap{k}.goodVectors).^2);
-        badVectors = find(abs(sqrt(vx.^2+vy.^2)-mean(magnitudesPerSec))>(std(magnitudesPerSec)*3));
-        velocityMap{k}.goodVectors(badVectors) = 0; %%#ok<FNDSB>
-    end
+    % away from the mean (run twice)
+    magnitudesPerSec = sqrt(vx(velocityMap{k}.goodVectors).^2+vy(velocityMap{k}.goodVectors).^2);
+    badVectors = find(abs(sqrt(vx.^2+vy.^2)-mean(magnitudesPerSec))>(std(magnitudesPerSec)*3));
+    velocityMap{k}.goodVectors(badVectors) = 0;
     
-    
+    magnitudesPerSec = sqrt(vx(velocityMap{k}.goodVectors).^2+vy(velocityMap{k}.goodVectors).^2);
+    badVectors = find(abs(sqrt(vx.^2+vy.^2)-mean(magnitudesPerSec))>(std(magnitudesPerSec)*3));
+    velocityMap{k}.goodVectors(badVectors) = 0;
+
     tEnd = toc(tStart);
     fprintf(' ____ TOI finished in %d minutes and %f seconds\n',floor(tEnd/60),rem(tEnd,60)); % added MM
     
 end
 
-%{
-% output data to file
-save([opt.path 'VelocityMap' opt.outputName '.mat'],'velocityMap');
-save([opt.path 'VelocityMap' opt.outputName '.mat'],'position_x','-append');
-save([opt.path 'VelocityMap' opt.outputName '.mat'],'position_y','-append');
-save([opt.path 'VelocityMap' opt.outputName '.mat'],'position_t','-append');
-save([opt.path 'VelocityMap' opt.outputName '.mat'],'opt','-append');
-%}
+%delete(ppb);
 
 end 
 

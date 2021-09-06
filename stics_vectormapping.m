@@ -187,7 +187,7 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
 
     
     %% Define a nested function to generate each vector field
-    function velocityMap = generateVectorField(k)
+    function VFstruct = generateVectorField(k)
 
         % position of TOI centers in time
         position_t(k) = 1/2 + (k-1)/opt.fracTOIshift*opt.TOIsize + opt.TOIsize/2;
@@ -195,18 +195,18 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
 
         TOIFOV = stack(:,:,floor(1+(k-1)/opt.fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/opt.fracTOIshift))));
         % define the average FOV TOI image that will be used in the display of the vector maps
-        velocityMap{k}.data_TOImean = mean(TOIFOV, 3);
+        VFstruct.data_TOImean = mean(TOIFOV, 3);
 
 
 
         tStart = tic; % 
         fprintf('analyzing TOI %i of %i ____ date and time is %s',k,length(kRange),datestr(now)); 
 
-        velocityMap{k}.sigFitRatio = zeros(along_x, along_y);
-    %     velocityMap{k}.coeffGtime = cell(along_x, along_y);
-    %     velocityMap{k}.Vx = zeros(along_x, along_y, 2);
-    %     velocityMap{k}.Vy = zeros(along_x, along_y, 2);
-    %     velocityMap{k}.VelMap = zeros(along_x, along_y);
+        VFstruct.sigFitRatio = zeros(along_x, along_y);
+    %     VFstruct.coeffGtime = cell(along_x, along_y);
+    %     VFstruct.Vx = zeros(along_x, along_y, 2);
+    %     VFstruct.Vy = zeros(along_x, along_y, 2);
+    %     VFstruct.VelMap = zeros(along_x, along_y);
 
         for u=1:length(iroi) 
 
@@ -260,8 +260,8 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
                     %do plain symmetric gaussian fit to data
                     [coeffGtime] = gaussfit(corrfn,'time',opt.pixelSize,'n',opt.fitRadius);
     %                 [coeffGrotated] = gaussfit(corrfn(:,:,1),'rotated',opt.pixelSize,'n',opt.fitRadius);
-    %                 velocityMap{k}.coeffGtime{i,j} = coeffGtime;
-    %                 velocityMap{k}.coeffGrotated{i,j} = coeffGrotated;
+    %                 VFstruct.coeffGtime{i,j} = coeffGtime;
+    %                 VFstruct.coeffGrotated{i,j} = coeffGrotated;
 
 
     %% Quality Control
@@ -293,21 +293,21 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
 
                     if size(corrfn,3) >= 2 && size(coeffGtime,1) >= 2
                         % Calculate linear model fit
-                        [velocityMap{k}.Px(u,2:-1:1), velocityMap{k}.Sx(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),5))', 1);
-                        [velocityMap{k}.Py(u,2:-1:1), velocityMap{k}.Sy(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),6))', 1);
+                        [VFstruct.Px(u,2:-1:1), VFstruct.Sx(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),5))', 1);
+                        [VFstruct.Py(u,2:-1:1), VFstruct.Sy(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),6))', 1);
                     else
-                        velocityMap{k}.Px(u,2:-1:1) = NaN; 
-                        velocityMap{k}.Py(u,2:-1:1) = NaN; 
+                        VFstruct.Px(u,2:-1:1) = NaN; 
+                        VFstruct.Py(u,2:-1:1) = NaN; 
                     end
                 else
-                    velocityMap{k}.Px(u,2:-1:1) = NaN; 
-    %                 velocityMap{k}.Sx(u,:) = NaN;
+                    VFstruct.Px(u,2:-1:1) = NaN; 
+    %                 VFstruct.Sx(u,:) = NaN;
 
-                    velocityMap{k}.Py(u,2:-1:1) = NaN; 
-    %                 velocityMap{k}.Sy(u,:) = NaN;
+                    VFstruct.Py(u,2:-1:1) = NaN; 
+    %                 VFstruct.Sy(u,:) = NaN;
                 end
 
-                velocityMap{k}.sigFitRatio(i,j) = size(corrfn,3)/size(regionanalyse,3);
+                VFstruct.sigFitRatio(i,j) = size(corrfn,3)/size(regionanalyse,3);
 
         end % end for indx
 
@@ -321,31 +321,31 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
         for u=1:length(iroi)
             i=iroi(u);
             j=jroi(u);
-        vy(i,j)=squeeze(velocityMap{k}.Py(u,2));
-        vx(i,j)=squeeze(velocityMap{k}.Px(u,2));
+        vy(i,j)=squeeze(VFstruct.Py(u,2));
+        vx(i,j)=squeeze(VFstruct.Px(u,2));
         end
-        velocityMap{k}.vx=vx;
-        velocityMap{k}.vy=vy;
+        VFstruct.vx=vx;
+        VFstruct.vy=vy;
         vx=vx(1:size(vx,1)*size(vx,2));
         vy=vy(1:size(vy,1)*size(vy,2));
 
         goodVectorsx = vectorOutlier(posx', posy', vx, opt.ROIshift, opt.threshVector);
         goodVectorsy = vectorOutlier(posx', posy', vy, opt.ROIshift, opt.threshVector);
 
-        velocityMap{k}.goodVectors = (goodVectorsx & goodVectorsy)' & (~isnan(vx) & ~isnan(vy)); 
+        VFstruct.goodVectors = (goodVectorsx & goodVectorsy)' & (~isnan(vx) & ~isnan(vy)); 
     %     clear goodVectorsx goodVectorsy
         % Throw out vectors whose magnitude is greater than 3 std devs
         % away from the mean
     %     for m=1:2 % run twice!
-    %         magnitudesPerSec = sqrt(vx(velocityMap{k}.goodVectors).^2+vy(velocityMap{k}.goodVectors).^2)';
+    %         magnitudesPerSec = sqrt(vx(VFstruct.goodVectors).^2+vy(VFstruct.goodVectors).^2)';
     %         badVectors = find(abs(sqrt(vx.^2+vy.^2)-mean(magnitudesPerSec))>(std(magnitudesPerSec)*3));
-    %         velocityMap{k}.goodVectors(badVectors) = 0; %#ok<FNDSB>
+    %         VFstruct.goodVectors(badVectors) = 0; %#ok<FNDSB>
     %     end
 
-        velocityMap{k}.goodVectors = reshape(velocityMap{k}.goodVectors, along_x, along_y);
-    %     velocityMap{k}.Vx = reshape(velocityMap{k}.Px(:,2), [along_x, along_y, 2]);
-    %     velocityMap{k}.Vy = reshape(velocityMap{k}.Py(:,2), [along_x, along_y, 2]);
-    %     velocityMap{k}.VelMap = sqrt(velocityMap{k}.vx.^2 + velocityMap{k}.vy.^2);
+        VFstruct.goodVectors = reshape(VFstruct.goodVectors, along_x, along_y);
+    %     VFstruct.Vx = reshape(VFstruct.Px(:,2), [along_x, along_y, 2]);
+    %     VFstruct.Vy = reshape(VFstruct.Py(:,2), [along_x, along_y, 2]);
+    %     VFstruct.VelMap = sqrt(VFstruct.vx.^2 + VFstruct.vy.^2);
 
         tEnd = toc(tStart);
         fprintf(' ____ TOI finished in %d minutes and %f seconds\n',floor(tEnd/60),round(rem(tEnd,60))); % added MM

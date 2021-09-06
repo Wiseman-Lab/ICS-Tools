@@ -47,11 +47,12 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     if ~isfield(opt, 'AllFrames'), opt.AllFrames = 1; end
     if ~isfield(opt, 'FrameRange'), opt.FrameRange = [ceil(opt.TOIsize/2), ceil(opt.TOIsize/2)+1];end
     if ~isfield(opt, 'SaveData'), opt.SaveData = 1; end
-    if ~isfield(opt, 'ProgressBar'), opt.ProgressBar = 0; end
+    if ~isfield(opt, 'ProgressBar'), opt.ProgressBar = 1; end
+    if ~isfield(opt, 'Parallel'), opt.Parallel = 1; end
 
     % shift of ROI's amount & define the position of ROI-TOI
-    fracROIshift = opt.ROIsize/opt.ROIshift;
-    fracTOIshift = opt.TOIsize/opt.TOIshift;
+    opt.fracROIshift = opt.ROIsize/opt.ROIshift;
+    opt.fracTOIshift = opt.TOIsize/opt.TOIshift;
 
     along_y = floor((size(stack,2)-opt.ROIsize)/opt.ROIshift)+1;
     along_x = floor((size(stack,1)-opt.ROIsize)/opt.ROIshift)+1;
@@ -79,13 +80,13 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
 
     % defining all of the ROI centers positons in x and y
     for i=1:along_x
-        position_x(i) = 1/2 + (i-1)/fracROIshift*opt.ROIsize + opt.ROIsize/2;
+        position_x(i) = 1/2 + (i-1)/opt.fracROIshift*opt.ROIsize + opt.ROIsize/2;
     end
     position_x=repmat(position_x,along_y,1);
     position_x=position_x';
 
     for j=1:along_y
-        position_y(j) = 1/2 + (j-1)/fracROIshift*opt.ROIsize + opt.ROIsize/2;
+        position_y(j) = 1/2 + (j-1)/opt.fracROIshift*opt.ROIsize + opt.ROIsize/2;
     end
     position_y=repmat(position_y,along_x,1);
 
@@ -116,8 +117,8 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
         % vectorPositions = zeros(along_x,along_y);
         % for w=1:along_x
         %     for s=1:along_y
-        %         indx = 1+(w-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((w-1)/fracROIshift)));
-        %         indy = 1+(s-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((s-1)/fracROIshift))); 
+        %         indx = 1+(w-1)/opt.fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((w-1)/opt.fracROIshift)));
+        %         indy = 1+(s-1)/opt.fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((s-1)/opt.fracROIshift))); 
         %         indx = floor(indx);
         %         indy = floor(indy);
         %         if(opt.maskCell(indx,indy)==1)
@@ -166,24 +167,33 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     velocityMap = cell(1, along_t);
 
     if opt.ProgressBar
-%         h = uifigure;
-%         d = uiprogressdlg(h,"Title", "Calculating STICS...", "Message",...
-%             {['Vector Field 0/', num2str(length(kRange)),' (0%).'],...
-%             ['Vector 0/', num2str(length(iroi)*length(kRange)), ' (0%)']});
-        
-        h = waitbar(0,{['Vector Field #0, (0/', num2str(length(kRange)),...
-                            ' = ', num2str(round(100*(0)/length(kRange),1)),'%).'],...
-                            ['Vector #0, (0/',num2str(length(iroi)*length(kRange)), ' = ',...
-                            num2str(round(100*(((0)*length(iroi)))/(length(iroi)*length(kRange)),1)),'%)']},...            
-            "Name", 'Calculating STICS...');
+        if opt.Parallel
+            h = uifigure;
+            d = uiprogressdlg(h,"Title", "Calculating STICS in Parallel...", "Message",...
+                {['Calculating ', num2str(length(kRange)),' vector fields in parallel with ', num2str(length(iroi)), ' vectors per field'],...
+                ['for a total of ', num2str(length(iroi)*length(kRange)), ' vectors. Please wait.']});
+            d.Indeterminate = 1; 
+%             d.Value = 0;
+%             d.ShowPercentage = 1;
+            drawnow;
+        else        
+            h = waitbar(0,{['Vector Field #0, (0/', num2str(length(kRange)),...
+                                ' = ', num2str(round(100*(0)/length(kRange),1)),'%).'],...
+                                ['Vector #0, (0/',num2str(length(iroi)*length(kRange)), ' = ',...
+                                num2str(round(100*(((0)*length(iroi)))/(length(iroi)*length(kRange)),1)),'%)']},...            
+                "Name", 'Calculating STICS...');
+        end
     end
 
-    for k = kRange%1:along_t % loop along time
+    
+    %% Define a nested function to generate each vector field
+    function velocityMap = generateVectorField(k)
+
         % position of TOI centers in time
-        position_t(k) = 1/2 + (k-1)/fracTOIshift*opt.TOIsize + opt.TOIsize/2;
+        position_t(k) = 1/2 + (k-1)/opt.fracTOIshift*opt.TOIsize + opt.TOIsize/2;
         % define whole FOV TOI
 
-        TOIFOV = stack(:,:,floor(1+(k-1)/fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/fracTOIshift))));
+        TOIFOV = stack(:,:,floor(1+(k-1)/opt.fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/opt.fracTOIshift))));
         % define the average FOV TOI image that will be used in the display of the vector maps
         velocityMap{k}.data_TOImean = mean(TOIFOV, 3);
 
@@ -202,20 +212,22 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
 
             if opt.ProgressBar
                 if ishandle(h)
-%                     d.Value = ( ((k-1)*length(iroi)) + u)/(length(iroi)*length(kRange));
-%                     d.Message = {['Vector Field ', num2str(k), '/', num2str(length(kRange)),...
-%                             ' (', num2str(round(100*k/length(kRange),1)),'%).'],
-%                             ['Vector ', num2str(((k-1)*length(iroi)) + u), '/',...
-%                             num2str(length(iroi)*length(kRange)), ' (',...
-%                             num2str(round(100*(((k-1)*length(iroi)) + u)/(length(iroi)*length(kRange)),1)),'%)']};
-                    
-                    waitbar((((find(kRange == k)-1)*length(iroi)) + u)/(length(iroi)*length(kRange)), h,...
-                        {['Vector Field #', num2str(k),', (' num2str(find(kRange == k)-1), '/', num2str(length(kRange)),...
-                            ' = ', num2str(round(100*(find(kRange == k)-1)/length(kRange),1)),'%).'],
-                            ['Vector #', num2str((((find(kRange == k))-1)*length(iroi)) + u), ' (',...
-                            num2str((((find(kRange == k))-1)*length(iroi)) + u),'/',...
-                            num2str(length(iroi)*length(kRange)), ' = ',...
-                            num2str(round(100*(((find(kRange == k)-1)*length(iroi)) + u)/(length(iroi)*length(kRange)),1)),'%)']});
+                    if opt.Parallel
+%                         d.Value = VFCompleted/length(kRange);
+    %                     d.Message = {['Vector Field ', num2str(k), '/', num2str(length(kRange)),...
+    %                             ' (', num2str(round(100*k/length(kRange),1)),'%).'],
+    %                             ['Vector ', num2str(((k-1)*length(iroi)) + u), '/',...
+    %                             num2str(length(iroi)*length(kRange)), ' (',...
+    %                             num2str(round(100*(((k-1)*length(iroi)) + u)/(length(iroi)*length(kRange)),1)),'%)']};
+                    else
+                        waitbar((((find(kRange == k)-1)*length(iroi)) + u)/(length(iroi)*length(kRange)), h,...
+                            {['Vector Field #', num2str(k),', (' num2str(find(kRange == k)-1), '/', num2str(length(kRange)),...
+                                ' = ', num2str(round(100*(find(kRange == k)-1)/length(kRange),1)),'%).'],
+                                ['Vector #', num2str((((find(kRange == k))-1)*length(iroi)) + u), ' (',...
+                                num2str((((find(kRange == k))-1)*length(iroi)) + u),'/',...
+                                num2str(length(iroi)*length(kRange)), ' = ',...
+                                num2str(round(100*(((find(kRange == k)-1)*length(iroi)) + u)/(length(iroi)*length(kRange)),1)),'%)']});
+                    end
                 end
             end        
 
@@ -224,7 +236,7 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
              i=iroi(u);
              j=jroi(u);
                 %define region (x,y,t) on which stics will be applied
-                regionanalyse = TOIFOV(floor(1+(i-1)/fracROIshift*opt.ROIsize):floor(opt.ROIsize*(1+((i-1)/fracROIshift))), floor(1+(j-1)/fracROIshift*opt.ROIsize): floor(opt.ROIsize*(1+((j-1)/fracROIshift))),:);
+                regionanalyse = TOIFOV(floor(1+(i-1)/opt.fracROIshift*opt.ROIsize):floor(opt.ROIsize*(1+((i-1)/opt.fracROIshift))), floor(1+(j-1)/opt.fracROIshift*opt.ROIsize): floor(opt.ROIsize*(1+((j-1)/opt.fracROIshift))),:);
 
                 %apply regular cross-corr stics
                 [corrfn] = stics(regionanalyse, opt.tauLimit);
@@ -251,16 +263,18 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     %                 velocityMap{k}.coeffGtime{i,j} = coeffGtime;
     %                 velocityMap{k}.coeffGrotated{i,j} = coeffGrotated;
 
+
+    %% Quality Control
                     % Apply threshold based on the Gaussian width (aka Omega
                     % Threshold):
 
 
     %                 % Discards some lags of the correlation functions if they have
     %                 % fitted widths larger than a threshold
-%                     cutOff = find(coeffGtime(:,1)<0, 1, 'first'); % Detect negative amplitudes...
-%                     if isempty(cutOff)
+    %                     cutOff = find(coeffGtime(:,1)<0, 1, 'first'); % Detect negative amplitudes...
+    %                     if isempty(cutOff)
                         cutOff = min([find(coeffGtime(:,2)>opt.maxHalfWidth,1,'first') find(coeffGtime(:,3)>opt.maxHalfWidth,1,'first')]);
-%                     end
+    %                     end
                     if cutOff >= 1
                         coeffGtime = coeffGtime(1:cutOff-1,:);
                         corrfn = corrfn(:,:,1:cutOff-1);
@@ -337,11 +351,28 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
         fprintf(' ____ TOI finished in %d minutes and %f seconds\n',floor(tEnd/60),round(rem(tEnd,60))); % added MM
 
     end
-
+    
+    % Create a handle for the function to use it in parallel.
+    GVF = @generateVectorField;
+    
+    %% Run FOR or PARFOR loop across the time interval
+    if opt.Parallel
+        parfor k = kRange
+            velocityMap{k} = feval(GVF, k);
+        end
+    else    
+        for k = kRange%1:along_t % loop along time            
+            velocityMap{k} = generateVectorField(k);
+        end
+    end
+    
+    %% Save data
     if opt.ProgressBar
-%         if ishandle(d)
-%             d.Indeterminate = 1;
-%         end
+        if opt.Parallel
+            d.Indeterminate = 1;
+            d.Message = 'Saving data...';
+            drawnow;
+        end
     end  
 
     if opt.SaveData
@@ -353,9 +384,10 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
         save([opt.path 'VelocityMap' opt.outputName '.mat'],'opt','-append');
     end
 
-    if ishandle(h)
-        delete(h)
+    if opt.ProgressBar
+        if ishandle(h)
+            delete(h)
+        end
     end
-
 end 
 

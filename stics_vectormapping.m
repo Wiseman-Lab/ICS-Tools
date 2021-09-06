@@ -31,18 +31,8 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
 
     if ~isfield(opt, 'maskCell'), opt.maskCell = ones(size(stack, 1), size(stack, 2)); end
 
-    if ~isfield(opt, 'axisTitle'), opt.axisTitle = [opt.fileName{1}, ...
-        '_',num2str(opt.ROIsize), 'x', num2str(opt.ROIshift), '_', ...
-        num2str(opt.TOIsize), 'x', num2str(opt.TOIshift), '_t', num2str(opt.tauLimit),  ...
-        'r', num2str(opt.fitRadius), 'w', num2str(opt.maxHalfWidth ), ...
-        'sd', num2str(opt.threshVector), 'v', num2str(opt.maxV)]; 
-    end
-
-    if ~isfield(opt, 'outputName'), opt.outputName = opt.axisTitle; end %output file name
     if ~isfield(opt, 'path'), opt.path = cd; end
-    if ~isfield(opt, 'exportimages'), opt.exportimages ='n'; end %'y' if you want export a pdf of every vector map, 'n' if you do not
-    if ~isfield(opt, 'imagesformat'), opt.imagesformat ='png'; end % 'png' or 'pdf' images...can add other option (formats) in plotSingleVectorMap code
-    if ~isfield(opt, 'movieformat'), opt.movieformat ='mp4'; end % movie format can be avi, jpeg or mp4
+
     if ~isfield(opt, 'CheckSignificance'), opt.CheckSignificance = 1; end
     if ~isfield(opt, 'AllFrames'), opt.AllFrames = 1; end
     if ~isfield(opt, 'FrameRange'), opt.FrameRange = [ceil(opt.TOIsize/2), ceil(opt.TOIsize/2)+1];end
@@ -242,7 +232,7 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
                 [corrfn] = stics(regionanalyse, opt.tauLimit);
 
                 % Check for significance of global maximum
-                upperTauLimit = min(opt.tauLimit,size(regionanalyse,3));
+                upperTauLimit = min(opt.tauLimit,size(regionanalyse,3));                
                 if opt.CheckSignificance
                     for  tau = 0:upperTauLimit-1
                         if ~correlationSignificance(corrfn(:,:,tau+1))
@@ -358,7 +348,7 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     %% Run FOR or PARFOR loop across the time interval
     if opt.Parallel
         parfor k = kRange
-            velocityMap{k} = feval(GVF, k);
+            velocityMap{k} = feval(GVF, k); %#ok<FVAL>
         end
     else    
         for k = kRange%1:along_t % loop along time            

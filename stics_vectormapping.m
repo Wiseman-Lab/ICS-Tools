@@ -15,24 +15,31 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     if ~isfield(opt, 'pixelSize'), opt.pixelSize = 1; end %pixel size in um
     if ~isfield(opt, 'timeFrame'), opt.timeFrame = 1; end %time delay (s) between subsequent frames
     if ~isfield(opt, 'TimeUnits'), opt.TimeUnits = 'sec'; end
-    if ~isfield(opt, 'tauLimit'), opt.tauLimit = 130; end % what is highest time lag to compute stics of TO
+    if ~isfield(opt, 'tauLimit'), opt.tauLimit = size(stack,3); end % what is highest time lag to compute stics of TO
     %filtering: choose 'FourierWhole','MovingAverage','butterIIR','none'
     if ~isfield(opt, 'filtering'), opt.filtering = 'none'; end
-    if ~isfield(opt, 'MoveAverage'), opt.MoveAverage = 21; end
-    if ~isfield(opt, 'fitRadius'), opt.fitRadius = 32; end %how many pixels (radius) are considered around the peak of corr fn when fitting 2D Gaussian
-    if ~isfield(opt, 'threshVector'), opt.threshVector = 5; end % what is the threshold delta(v) (um/s) used in discarding spurious vectors
-    %if ~isfield(opt, 'threshVectorDotProd'), opt.threshVectorDotProd = 0.5; end
-    if ~isfield(opt, 'maxV'); opt.maxV = Inf;end %((opt.ROIsize*opt.pixelSize/3)/opt.timeFrame)*60;end
+
     if ~isfield(opt, 'ROIsize'), opt.ROIsize = 32; end % ROI size in pixels
     if ~isfield(opt, 'ROIshift'), opt.ROIshift = 8; end %what is ROI centers shift in pixels
     if ~isfield(opt, 'TOIsize'), opt.TOIsize = 5; end % what is TOI size in frames
     if ~isfield(opt, 'TOIshift'), opt.TOIshift = 1; end %how much is TOI shifted
+    
     if ~isfield(opt, 'maxHalfWidth'), opt.maxHalfWidth = ((opt.ROIsize/2)*opt.pixelSize)/2; end % % how big (um) do you allow the radius of corr fn to be...removes wide corr fns... % AKA omegaThreshold
-
+    if ~isfield(opt, 'MoveAverage'), opt.MoveAverage = 21; end
+    if ~isfield(opt, 'fitRadius'), opt.fitRadius = opt.ROIsize/4; end %how many pixels (radius) are considered around the peak of corr fn when fitting 2D Gaussian
+    if ~isfield(opt, 'threshVector'), opt.threshVector = 5; end % what is the threshold delta(v) (um/s) used in discarding spurious vectors
+    %if ~isfield(opt, 'threshVectorDotProd'), opt.threshVectorDotProd = 0.5; end
+    if ~isfield(opt, 'maxV'); opt.maxV = Inf;end %((opt.ROIsize*opt.pixelSize/3)/opt.timeFrame)*60;end
     if ~isfield(opt, 'maskCell'), opt.maskCell = ones(size(stack, 1), size(stack, 2)); end
 
     if ~isfield(opt, 'path'), opt.path = cd; end
-
+    if ~isfield(opt, 'axisTitle'), opt.axisTitle = [opt.fileName{1}, ...
+        '_',num2str(opt.ROIsize), 'x', num2str(opt.ROIshift), '_', ...
+        num2str(opt.TOIsize), 'x', num2str(opt.TOIshift), '_t', num2str(opt.tauLimit),  ...
+        'r', num2str(opt.fitRadius), 'w', num2str(opt.maxHalfWidth ), ...
+        'sd', num2str(opt.threshVector), 'v', num2str(opt.maxV)]; 
+    end
+    if ~isfield(opt, 'outputName'), opt.outputName = opt.axisTitle; end %output file name
     if ~isfield(opt, 'CheckSignificance'), opt.CheckSignificance = 1; end
     if ~isfield(opt, 'AllFrames'), opt.AllFrames = 1; end
     if ~isfield(opt, 'FrameRange'), opt.FrameRange = [ceil(opt.TOIsize/2), ceil(opt.TOIsize/2)+1];end
@@ -52,6 +59,7 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
         if isempty(opt.FrameRange)
             opt.AllFrames = 1;
             kRange = 1:along_t;
+            opt.FrameRange = kRange + floor(opt.TOIsize/2);
         else
             if mod(opt.TOIsize, 2) ==  0 % TOI size is even
                 minK = 1;
@@ -62,6 +70,7 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
         end
     else
         kRange = 1:along_t;
+        opt.FrameRange = kRange + floor(opt.TOIsize/2);        
     end
 
     position_x  =   zeros(1,along_x);
@@ -163,25 +172,23 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
                 {['Calculating ', num2str(length(kRange)),' vector fields in parallel with ', num2str(length(iroi)), ' vectors per field'],...
                 ['for a total of ', num2str(length(iroi)*length(kRange)), ' vectors. Please wait.']});
             d.Indeterminate = 1; 
-%             d.Value = 0;
-%             d.ShowPercentage = 1;
+
             drawnow;
         else        
-            h = waitbar(0,{['Vector Field #0, (0/', num2str(length(kRange)),...
+            h = uifigure;
+            d = uiprogressdlg(h, 'Title', 'Calculating STICS...','Message',...
+                                {['Vector Field #0, (0/', num2str(length(kRange)),...
                                 ' = ', num2str(round(100*(0)/length(kRange),1)),'%).'],...
                                 ['Vector #0, (0/',num2str(length(iroi)*length(kRange)), ' = ',...
-                                num2str(round(100*(((0)*length(iroi)))/(length(iroi)*length(kRange)),1)),'%)']},...            
-                "Name", 'Calculating STICS...');
+                                num2str(round(100*(((0)*length(iroi)))/(length(iroi)*length(kRange)),1)),'%)']},...
+                                'Indeterminate', 0);
+                            d.ShowPercentage = 1;
         end
     end
 
     
     %% Define a nested function to generate each vector field
     function VFstruct = generateVectorField(k)
-
-        % position of TOI centers in time
-        position_t(k) = 1/2 + (k-1)/opt.fracTOIshift*opt.TOIsize + opt.TOIsize/2;
-        % define whole FOV TOI
 
         TOIFOV = stack(:,:,floor(1+(k-1)/opt.fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/opt.fracTOIshift))));
         % define the average FOV TOI image that will be used in the display of the vector maps
@@ -199,17 +206,11 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     %     VFstruct.VelMap = zeros(along_x, along_y);
 
         for u=1:length(iroi) 
-
+            
+            % Update progress bars
             if opt.ProgressBar
                 if ishandle(h)
-                    if opt.Parallel
-%                         d.Value = VFCompleted/length(kRange);
-    %                     d.Message = {['Vector Field ', num2str(k), '/', num2str(length(kRange)),...
-    %                             ' (', num2str(round(100*k/length(kRange),1)),'%).'],
-    %                             ['Vector ', num2str(((k-1)*length(iroi)) + u), '/',...
-    %                             num2str(length(iroi)*length(kRange)), ' (',...
-    %                             num2str(round(100*(((k-1)*length(iroi)) + u)/(length(iroi)*length(kRange)),1)),'%)']};
-                    else
+                    if ~opt.Parallel
                         waitbar((((find(kRange == k)-1)*length(iroi)) + u)/(length(iroi)*length(kRange)), h,...
                             {['Vector Field #', num2str(k),', (' num2str(find(kRange == k)-1), '/', num2str(length(kRange)),...
                                 ' = ', num2str(round(100*(find(kRange == k)-1)/length(kRange),1)),'%).'],
@@ -221,121 +222,82 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
                 end
             end        
 
-         %accessing the data of only 
-         %the ROI that are defined within the selected polygon
-             i=iroi(u);
-             j=jroi(u);
-                %define region (x,y,t) on which stics will be applied
-                regionanalyse = TOIFOV(floor(1+(i-1)/opt.fracROIshift*opt.ROIsize):floor(opt.ROIsize*(1+((i-1)/opt.fracROIshift))), floor(1+(j-1)/opt.fracROIshift*opt.ROIsize): floor(opt.ROIsize*(1+((j-1)/opt.fracROIshift))),:);
+            % Accessing the data of only the ROIs that are defined within the selected polygon
+            i=iroi(u);
+            j=jroi(u);
+            
+            % Define the data region (x,y,t) on which STICS will be applied
+            regionanalyse = TOIFOV(floor(1+(i-1)/opt.fracROIshift*opt.ROIsize):floor(opt.ROIsize*(1+((i-1)/opt.fracROIshift))), floor(1+(j-1)/opt.fracROIshift*opt.ROIsize): floor(opt.ROIsize*(1+((j-1)/opt.fracROIshift))),:);
 
-                %apply regular cross-corr stics
-                [corrfn] = stics(regionanalyse, opt.tauLimit);
+            % Apply regular cross-corr STICS
+            [corrfn] = stics(regionanalyse, opt.tauLimit);
 
-                % Check for significance of global maximum
-                upperTauLimit = min(opt.tauLimit,size(regionanalyse,3));                
-                if opt.CheckSignificance
-                    for  tau = 0:upperTauLimit-1
-                        if ~correlationSignificance(corrfn(:,:,tau+1))
-                            corrfn = corrfn(:,:,1:(end-1)); % cut off the "bad" lag(s)
-                            break
-                        end            
+            % Check for significance of global maximum
+            upperTauLimit = min(opt.tauLimit, size(regionanalyse,3));
+            if opt.CheckSignificance
+                for  tau = 0:upperTauLimit-1
+                    if ~correlationSignificance(corrfn(:,:,tau+1))
+                        corrfn = corrfn(:,:,1:(end-1)); % cut off the "bad" lag(s)
+                        break
                     end            
                 end            
+            end            
+
+            % Fit vxtau and vytau vs tau linearly to extract vx and vy
+            if size(corrfn,3)>1 && size(corrfn,1)==opt.ROIsize && size(corrfn,2)==opt.ROIsize % second two arguments added MM because of error when corrfn size is strange
+                % Apply symmetric gaussian fit to data
+                [coeffGtime] = gaussfit(corrfn,'time',opt.pixelSize,'n',opt.fitRadius);
+%                 [coeffGrotated] = gaussfit(corrfn(:,:,1),'rotated',opt.pixelSize,'n',opt.fitRadius);
+%                 VFstruct.coeffGtime{i,j} = coeffGtime;
+%                 VFstruct.coeffGrotated{i,j} = coeffGrotated;
 
 
-                %[i j k]
+%% Quality Control
+                % Discard correlation function fits if they have:
+                cutOff = min([find(coeffGtime(:,1)<0, 1, 'first'),... % negative amplitudes or...
+                    find(coeffGtime(:,2)>opt.maxHalfWidth,1,'first'),... % large X width or...
+                    find(coeffGtime(:,3)>opt.maxHalfWidth,1,'first'),... % large Y width...
+                    find(coeffGtime(:,1)<coeffGtime(1,1)/4, 1, 'first'),... % or an amplitude decay beyond 1/4.
+                    find(coeffGtime(:,1)>coeffGtime(1,1).*1.1, 1, 'first')]); % or an amplitude greater than the first.
 
-                %fit vxtau and vytau vs tau linearly to extract vx and vy
-                if size(corrfn,3)>1 && size(corrfn,1)==opt.ROIsize && size(corrfn,2)==opt.ROIsize % second two arguments added MM because of error when corrfn size is strange
-                    %do plain symmetric gaussian fit to data
-                    [coeffGtime] = gaussfit(corrfn,'time',opt.pixelSize,'n',opt.fitRadius);
-    %                 [coeffGrotated] = gaussfit(corrfn(:,:,1),'rotated',opt.pixelSize,'n',opt.fitRadius);
-    %                 VFstruct.coeffGtime{i,j} = coeffGtime;
-    %                 VFstruct.coeffGrotated{i,j} = coeffGrotated;
-
-
-    %% Quality Control
-                    % Apply threshold based on the Gaussian width (aka Omega
-                    % Threshold):
-
-
-    %                 % Discards some lags of the correlation functions if they have
-    %                 % fitted widths larger than a threshold
-    %                     cutOff = find(coeffGtime(:,1)<0, 1, 'first'); % Detect negative amplitudes...
-    %                     if isempty(cutOff)
-                        cutOff = min([find(coeffGtime(:,2)>opt.maxHalfWidth,1,'first') find(coeffGtime(:,3)>opt.maxHalfWidth,1,'first')]);
-    %                     end
-                    if cutOff >= 1
-                        coeffGtime = coeffGtime(1:cutOff-1,:);
-                        corrfn = corrfn(:,:,1:cutOff-1);
-    %                 
-    %                 % set beam waists above cutoff to zero so you can
-    %                 % see where it got cut off
-    %                 % Old way: coeffGtime(cutOff:end,2:3) = 0;
-    %                 % New way: 
-    %                 coeffGtime = coeffGtime(1:cutOff-1,:);
-    % 
-    %                 % crop time corr as well
-    %                 % Old way: corrfn(:,:,cutOff:end) = 0;
-    %                 % New way:
-    %                 corrfn = corrfn(:,:,1:cutOff-1);
-                    end
-
-                    if size(corrfn,3) >= 2 && size(coeffGtime,1) >= 2
-                        % Calculate linear model fit
-                        [VFstruct.Px(u,2:-1:1), VFstruct.Sx(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),5))', 1);
-                        [VFstruct.Py(u,2:-1:1), VFstruct.Sy(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),6))', 1);
-                    else
-                        VFstruct.Px(u,2:-1:1) = NaN; 
-                        VFstruct.Py(u,2:-1:1) = NaN; 
-                    end
+                % Remove these fits and their corresponding correlation
+                % functions:
+                if cutOff >= 1
+                    coeffGtime = coeffGtime(1:cutOff-1,:);
+                    corrfn = corrfn(:,:,1:cutOff-1);
+                end
+%% Linear fit model
+                % If there are more than 2 fits left:
+                if size(corrfn,3) >= 2 && size(coeffGtime,1) >= 2
+                    % Calculate linear model fit
+                    [VFstruct.Px(u,2:-1:1), VFstruct.Sx(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),5))', 1);
+                    [VFstruct.Py(u,2:-1:1), VFstruct.Sy(u)] = polyfit(opt.timeFrame*(1:size(corrfn,3)), squeeze(coeffGtime(1:size(corrfn,3),6))', 1);
                 else
                     VFstruct.Px(u,2:-1:1) = NaN; 
-    %                 VFstruct.Sx(u,:) = NaN;
-
                     VFstruct.Py(u,2:-1:1) = NaN; 
-    %                 VFstruct.Sy(u,:) = NaN;
                 end
-
-                VFstruct.sigFitRatio(i,j) = size(corrfn,3)/size(regionanalyse,3);
-
+            else
+                VFstruct.Px(u,2:-1:1) = NaN; 
+                VFstruct.Py(u,2:-1:1) = NaN; 
+            end
+            VFstruct.sigFitRatio(i,j) = size(corrfn,3)/size(regionanalyse,3);
         end % end for indx
 
-        % remove bad vectors for each vector map
-        posx=squeeze(position_x); % What is this for? Unnecesary?
-        posx=posx(1:size(posx,1)*size(posx,2));
-        posy=squeeze(position_y);
-        posy=posy(1:size(posy,1)*size(posy,2));
-        vx=nan(size(position_x));
-        vy=nan(size(position_y));
+        %% Reorganize Px and Py into vx and vy:
+        vx = nan(size(position_x));
+        vy = nan(size(position_y));
+        
         for u=1:length(iroi)
             i=iroi(u);
             j=jroi(u);
-        vy(i,j)=squeeze(VFstruct.Py(u,2));
-        vx(i,j)=squeeze(VFstruct.Px(u,2));
+            vy(i,j)=squeeze(VFstruct.Py(u,2));
+            vx(i,j)=squeeze(VFstruct.Px(u,2));
         end
+        
         VFstruct.vx=vx;
         VFstruct.vy=vy;
-        vx=vx(1:size(vx,1)*size(vx,2));
-        vy=vy(1:size(vy,1)*size(vy,2));
 
-        goodVectorsx = vectorOutlier(posx', posy', vx, opt.ROIshift, opt.threshVector);
-        goodVectorsy = vectorOutlier(posx', posy', vy, opt.ROIshift, opt.threshVector);
-
-        VFstruct.goodVectors = (goodVectorsx & goodVectorsy)' & (~isnan(vx) & ~isnan(vy)); 
-    %     clear goodVectorsx goodVectorsy
-        % Throw out vectors whose magnitude is greater than 3 std devs
-        % away from the mean
-    %     for m=1:2 % run twice!
-    %         magnitudesPerSec = sqrt(vx(VFstruct.goodVectors).^2+vy(VFstruct.goodVectors).^2)';
-    %         badVectors = find(abs(sqrt(vx.^2+vy.^2)-mean(magnitudesPerSec))>(std(magnitudesPerSec)*3));
-    %         VFstruct.goodVectors(badVectors) = 0; %#ok<FNDSB>
-    %     end
-
-        VFstruct.goodVectors = reshape(VFstruct.goodVectors, along_x, along_y);
-    %     VFstruct.Vx = reshape(VFstruct.Px(:,2), [along_x, along_y, 2]);
-    %     VFstruct.Vy = reshape(VFstruct.Py(:,2), [along_x, along_y, 2]);
-    %     VFstruct.VelMap = sqrt(VFstruct.vx.^2 + VFstruct.vy.^2);
+        VFstruct.goodVectors = (~isnan(vx) & ~isnan(vy)); 
 
         tEnd = toc(tStart);
         fprintf(' ____ TOI finished in %d minutes and %f seconds\n',floor(tEnd/60),round(rem(tEnd,60))); % added MM
@@ -347,22 +309,31 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
     
     %% Run FOR or PARFOR loop across the time interval
     if opt.Parallel
-        parfor k = kRange
+        
+        for k = kRange%1:along_t % loop along time                        
+            % position of TOI centers in time
+            position_t(k) = 1/2 + (k-1)/opt.fracTOIshift*opt.TOIsize + opt.TOIsize/2;
+            % define whole FOV TOI            
+        end                
+        
+        parfor k = kRange                                   
             velocityMap{k} = feval(GVF, k); %#ok<FVAL>
         end
+        
     else    
-        for k = kRange%1:along_t % loop along time            
+        for k = kRange%1:along_t % loop along time                        
+            % position of TOI centers in time
+            position_t(k) = 1/2 + (k-1)/opt.fracTOIshift*opt.TOIsize + opt.TOIsize/2;
+            % define whole FOV TOI                        
             velocityMap{k} = generateVectorField(k);
         end
     end
     
     %% Save data
     if opt.ProgressBar
-        if opt.Parallel
-            d.Indeterminate = 1;
-            d.Message = 'Saving data...';
-            drawnow;
-        end
+        d.Indeterminate = 1;
+        d.Message = 'Saving data...';
+        drawnow;
     end  
 
     if opt.SaveData

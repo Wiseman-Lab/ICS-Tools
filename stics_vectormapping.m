@@ -236,6 +236,8 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
             upperTauLimit = min(opt.tauLimit, size(regionanalyse,3));
             if opt.CheckSignificance
                 for  tau = 0:upperTauLimit-1
+                        disp(['Tau = ', num2str(tau)]);
+                        disp(['Corrfn size = ', num2str(size(corrfn,3))]);                    
                     if ~correlationSignificance(corrfn(:,:,tau+1))
                         corrfn = corrfn(:,:,1:(end-1)); % cut off the "bad" lag(s)
                         break

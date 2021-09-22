@@ -35,18 +35,11 @@ if length(varargin)==2
     %timecorr = zeros(size(imgser,1),size(imgser,2),upperTauLimit);  % preallocates lagcorr matrix for storing raw time corr functions
     %SeriesMean = squeeze(mean(mean(imgser)));
     fftStack = double(zeros(size(imgser)));
-    imageMean = squeeze(mean(mean(imgser,1),2));
-    imageMean(find(imageMean==0))=10^-12;
-    
-    %{
+    imageMean = squeeze(mean(mean(imgser,1),2));   
+    imageMean(imageMean==0)=10^-12;    
     for i = 1:size(imgser,3)
         fftStack(:,:,i) = fft2(double(imgser(:,:,i)));
     end
-    %}
-    
-    % Vectorized
-    i=1:size(imgser,3);
-    fftStack(:,:,i) = fft2(double(imgser(:,:,i)));
   
     for tau = 0:upperTauLimit-1
         lagcorr = zeros(size(imgser,1),size(imgser,2),(size(imgser,3)-tau));
@@ -59,10 +52,10 @@ if length(varargin)==2
         timecorr(:,:,(tau+1)) = fftshift(mean(lagcorr,3))./size(imgser,1)./size(imgser,2)-1;
                 
         % Checks for significance of global maximum
-         if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr(:,:,tau+1)))
-             timecorr = timecorr(:,:,1:(end-1)); % cut off the "bad" lag
-             break
-         end
+%          if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr(:,:,tau+1)))
+%              timecorr = timecorr(:,:,1:(end-1)); % cut off the "bad" lag
+%              break
+%          end
         
         if useWaitBar
             if ishandle(h)
@@ -88,8 +81,8 @@ elseif length(varargin)==3
     fftStack2 = double(zeros(size(imgser2)));
     imageMean1 = squeeze(mean(mean(imgser1,1),2));
     imageMean2 = squeeze(mean(mean(imgser2,1),2));
-    imageMean1(find(imageMean1==0))=10^-12; 
-    imageMean2(find(imageMean2==0))=10^-12;
+     imageMean1(find(imageMean1==0))=10^-12; 
+      imageMean2(find(imageMean2==0))=10^-12;
     % Calculates FFTs only once to save time
     % Might cause memory problems for huge data sets
     for i = 1:size(imgser1,3)
@@ -108,11 +101,11 @@ elseif length(varargin)==3
         %timecorr(:,:,(tau+1)) = fftshift(real(ifft2(mean(lagcorr,3))));
         timecorr(:,:,(tau+1)) = fftshift(mean(lagcorr,3))./size(imgser1,1)./size(imgser1,2)-1;
         
-        % Checks for significance of global maximum
-        if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr(:,:,tau+1)))
-            timecorr = timecorr(:,:,1:(end-1)); % cut off the "bad" lag
-            break
-        end
+%         % Checks for significance of global maximum
+%         if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr(:,:,tau+1)))
+%             timecorr = timecorr(:,:,1:(end-1)); % cut off the "bad" lag
+%             break
+%         end
 
         
         if useWaitBar
@@ -141,11 +134,11 @@ elseif length(varargin)==3
            %timecorr21(:,:,(tau+1)) = fftshift(real(ifft2(mean(lagcorr,3))));
            timecorr21(:,:,(tau+1)) = fftshift(mean(lagcorr,3))./size(imgser1,1)./size(imgser1,2)-1;
         
-           % Checks for significance of global maximum for cross-corr 21
-           if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr21(:,:,tau+1)))
-              timecorr21 = timecorr21(:,:,1:(end-1)); % cut off the "bad" lag
-              break
-           end
+%            % Checks for significance of global maximum for cross-corr 21
+%            if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr21(:,:,tau+1)))
+%               timecorr21 = timecorr21(:,:,1:(end-1)); % cut off the "bad" lag
+%               break
+%            end
            if useWaitBar
                 if ishandle(h)
                   waitbar((tau+1)/(upperTauLimit),h,'Calculating auto-correlation functions...')
@@ -167,11 +160,11 @@ elseif length(varargin)==3
             %timecorr1(:,:,(tau+1)) = fftshift(real(ifft2(mean(lagcorr,3))));
             timecorr1(:,:,(tau+1)) = fftshift(mean(lagcorr,3))./size(imgser1,1)./size(imgser1,2)-1;
         
-            % Checks for significance of global maximum
-            if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr1(:,:,tau+1)))
-                timecorr1 = timecorr1(:,:,1:(end-1)); % cut off the "bad" lag
-                break
-            end
+%             % Checks for significance of global maximum
+%             if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr1(:,:,tau+1)))
+%                 timecorr1 = timecorr1(:,:,1:(end-1)); % cut off the "bad" lag
+%                 break
+%             end
 
             if useWaitBar
                 if ishandle(h)
@@ -193,11 +186,11 @@ elseif length(varargin)==3
             %timecorr2(:,:,(tau+1)) = fftshift(real(ifft2(mean(lagcorr,3))));
             timecorr2(:,:,(tau+1)) = fftshift(mean(lagcorr,3))./size(imgser2,1)./size(imgser2,2)-1;
         
-            % Checks for significance of global maximum
-            if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr2(:,:,tau+1)))
-                timecorr2 = timecorr2(:,:,1:(end-1)); % cut off the "bad" lag
-                break
-            end
+%             % Checks for significance of global maximum
+%             if (tau==(upperTauLimit-1))||(~correlationSignificance(timecorr2(:,:,tau+1)))
+%                 timecorr2 = timecorr2(:,:,1:(end-1)); % cut off the "bad" lag
+%                 break
+%             end
 
             if useWaitBar
                 if ishandle(h)

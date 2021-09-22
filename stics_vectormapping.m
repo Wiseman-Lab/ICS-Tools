@@ -230,14 +230,12 @@ function [velocityMap, position_x, position_y, position_t, opt] = stics_vectorma
             regionanalyse = TOIFOV(floor(1+(i-1)/opt.fracROIshift*opt.ROIsize):floor(opt.ROIsize*(1+((i-1)/opt.fracROIshift))), floor(1+(j-1)/opt.fracROIshift*opt.ROIsize): floor(opt.ROIsize*(1+((j-1)/opt.fracROIshift))),:);
 
             % Apply regular cross-corr STICS
-            [corrfn] = stics(regionanalyse, opt.tauLimit);
+            [corrfn] = stics(regionanalyse, opt.tauLimit);    
 
             % Check for significance of global maximum
             upperTauLimit = min(opt.tauLimit, size(regionanalyse,3));
             if opt.CheckSignificance
-                for  tau = 0:upperTauLimit-1
-                        disp(['Tau = ', num2str(tau)]);
-                        disp(['Corrfn size = ', num2str(size(corrfn,3))]);                    
+                for  tau = 0:upperTauLimit-1                 
                     if ~correlationSignificance(corrfn(:,:,tau+1))
                         corrfn = corrfn(:,:,1:(end-1)); % cut off the "bad" lag(s)
                         break

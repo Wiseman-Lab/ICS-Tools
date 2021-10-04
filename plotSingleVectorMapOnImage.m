@@ -183,7 +183,7 @@ function [velocityMap, opt] = plotSingleVectorMapOnImage(velocityMap,position_t,
              colormap(fullcolormap( lowerColormapLimit:colormapsize,:))
              %colormap(fullcolormap( lowerColormapLimit:floor((velocityMap{k}.maxVel-minGlobalVel)/cMapSpacingV ) ,:))
           end
-             velocityMap{k}.autoScale = quiverc(posyall(toigoodvect{k}),posxall(toigoodvect{k}),-vxall(k,toigoodvect{k}),-vyall(k,toigoodvect{k}),1);
+             velocityMap{k}.autoScale = quiverc(gca, posyall(toigoodvect{k}),posxall(toigoodvect{k}),-vxall(k,toigoodvect{k}),-vyall(k,toigoodvect{k}),1);
              % velocityMap{k}.autoScale = quiverc(posyall(toigoodvect{k}),posxall(toigoodvect{k}),-vxall(k,toigoodvect{k}),-vyall(k,toigoodvect{k}),1);
              set(gca,'XTick',[],'YTick',[],'XLim',XLim,'YLim',YLim);
              fontWeight = 'normal';

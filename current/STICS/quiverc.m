@@ -143,7 +143,7 @@ function autoscale = quiverc(varargin)
         if ii==0; ii=1; end        
         c1= CC(ii,1);    c2= CC(ii,2);    c3= CC(ii,3);
         %plot('v6',uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3]);
-        plot(ax, uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3]);
+        plot(ax, uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3],"LineWidth", lw);
     end
 
     %----------------------------------------------
@@ -164,7 +164,7 @@ function autoscale = quiverc(varargin)
         if ii==0; ii=1; end   
         c1= CC(ii,1);    c2= CC(ii,2);    c3= CC(ii,3);
         %plot('v6',uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3]);
-        plot(ax, uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3]);
+        plot(ax, uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3],"LineWidth", lw);
      end
 
      % plot other half of arrow head
@@ -173,7 +173,7 @@ function autoscale = quiverc(varargin)
         if ii==0; ii=1; end   
         c1= CC(ii,1);    c2= CC(ii,2);    c3= CC(ii,3);
         %plot('v6',uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3]);
-        plot(ax, uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3]);
+        plot(ax, uui(i:i+1),vvi(i:i+1),ls,'color',[c1 c2 c3],"LineWidth", lw);
      end
 
     else

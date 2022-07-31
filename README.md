@@ -1,17 +1,12 @@
 # **Wiseman Lab - Image Correlation Spectroscopy (ICS) Tools**
-
-## ICS Analysis v1.0
+## ICS Analysis v1.0 
 February 26, 2006
------------------
 
 ## Copyright
----------
 Copyright 2003-2006, Wiseman Research Group, McGill University.
 
 
 ## System Requirements
--------------------
-
 * MATLAB 7, with Image Processing and Optimization Toolboxes.  Earlier versions may work as well, but have not been tested.
 
 * There are no hardware requirements, per se.  Processor speed will play a large role in the analysis time, and the amount of system RAM will dictate the maximum size of the image series which can be analyzed.  A 1.5 GHz machine with 512 MB RAM should be sufficient for most data sets.
@@ -20,38 +15,26 @@ Copyright 2003-2006, Wiseman Research Group, McGill University.
 
 
 ## Installation Instructions
--------------------------
-
 Just unzip the .m files, and ensure they're in your MATLAB path. (From in MATLAB: File --> Set Path... --> Add with Subfolders...).
 
 
 ## Tutorial
---------
-
 A brief tutorial is included in /ICSMATLAB/tutorial/ICSTutorial.html.
 
 
 ## File Formats
-------------
-
 Only 8-bit RAW and 16-bit Fluoview TIFF files can be imported in this release.  Support for additional formats may be added in a future release.
 
 
 ## Disclaimer
-----------
-
 This software is provided as is, without any warranty whatsoever.
 
 
 ## Contact Info
-------------
-
 Please send bug reports and suggestions to david.kolin@gmail.com.
 
 
 ## File List
----------
-
 %% Files for importing data %%
 
 rd_img16.m % reads Fluoview tiff image series from Olympus microscopes
@@ -107,8 +90,6 @@ QDBlink.m % used by simul8tr.m
 
 
 ## Version History
----------------
-
 v1.0
 February 26, 2006
 
@@ -117,6 +98,6 @@ February 26, 2006
 * Spatio-temporal ICS
 
 ## References
-* *Theory:* B. Hebert, S. Costantino, P. W. Wiseman, [Spatiotemporal image correlation spectroscopy (STICS) theory, verification, and application to protein velocity mapping in living CHO cells.](https://doi.org/10.1529/biophysj.104.054874) Biophys. J. 88, 3601–3614 (2005).
-* *This release:* D. L. Kolin, S. Costantino, P. W. Wiseman, [Sampling Effects, Noise, and Photobleaching in Temporal Image Correlation Spectroscopy](https://doi.org/10.1529/biophysj.105.072322) Biophys. J. 90, 628–639 (2006).
+* **Theory:** B. Hebert, S. Costantino, P. W. Wiseman, [Spatiotemporal image correlation spectroscopy (STICS) theory, verification, and application to protein velocity mapping in living CHO cells.](https://doi.org/10.1529/biophysj.104.054874) Biophys. J. 88, 3601–3614 (2005).
+* **This release:** D. L. Kolin, S. Costantino, P. W. Wiseman, [Sampling Effects, Noise, and Photobleaching in Temporal Image Correlation Spectroscopy](https://doi.org/10.1529/biophysj.105.072322) Biophys. J. 90, 628–639 (2006).
 

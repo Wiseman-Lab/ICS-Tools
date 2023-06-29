@@ -1,6 +1,9 @@
 # **Wiseman Lab Repo for Image Correlation Techniques**
 
-This repository contains a library of code and software developped by the members of the Wiseman Lab. The code can be accessed by navigating to the Releases and downloading the corresponding ZIP file. Alternatively, one can switch branches to the code of interest and then download the repository.
+This repository contains a library of code and software developped by the members of the Wiseman Lab. 
+
+## Download instructions
+The code can be accessed by navigating to the [Releases](https://github.com/Wiseman-Lab/ICS-Tools/releases) and downloading the corresponding ZIP file. Alternatively, one can switch branches to the code of interest and then download the repository.
 
 For questions please contact paul[dot]wiseman[at]mcgill[dot]ca 
 

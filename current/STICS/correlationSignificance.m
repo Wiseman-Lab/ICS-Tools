@@ -17,8 +17,8 @@ threshold = 0.5;
 if sum(allMaxima(:))==1
     significant = 1;
 else
-    [corrMax corrMaxLocation] = max(corr(:));
-    [corrMaxLocationi corrMaxLocationj] = ind2sub(size(corr),corrMaxLocation);
+    [corrMax, corrMaxLocation] = max(corr(:));
+    [corrMaxLocationi, corrMaxLocationj] = ind2sub(size(corr),corrMaxLocation);
 
     if mod(size(corr,1),2)==0
         corr00 = size(corr,1)/2+1;
@@ -38,11 +38,11 @@ else
     % discard the correlation function.  This is for functions where two local maxima reflect the same correlation peak:
     %                  /\
     %                 /  \/\
-    %                /      \  This should count as a valid function to fit!
-    %               /        \
-    %              /          \
-    %             /            \
-    % ___________/              \_____________________
+    %                /       \  This should count as a valid function to fit!
+    %               /         \
+    %              /           \
+    %             /             \
+    % ______/               \____________________
     %If there are only 2 maxima, then compare the global with the other one
     if length(significanceRatios)==2
         if significanceRatios(end-1) < threshold

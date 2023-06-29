@@ -1,4 +1,4 @@
-function goodVectors = vectorOutlier(gridIndexj,gridIndexi,v,subRegionStep,thresholdInput)
+function [goodVectors] = vectorOutlier(gridIndexj,gridIndexi,v,subRegionStep,thresholdInput)
 
 %Assume all vectors are good to start
 

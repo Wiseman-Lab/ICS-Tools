@@ -1,29 +1,43 @@
 function [a] = gaussfit(corr,type,pixelsize,whitenoise,radius)
-
+%GAUSSFIT Fits a 2D Gaussian function to experimental data.
+% Credits: Initially developped by David Kolin for ICS (Kolin & Wiseman,
+% 2017), later modified by Elvis Pandzic for STIC(C)S (Ashdown et al., 2015) and recently
+% updated by Rodrigo Migueles-Ramirez for rotated Gaussian fitting based on Manuel
+% A. Diaz' "Fit 1D and 2D Gaussian"
+% (https://www.mathworks.com/matlabcentral/fileexchange/55033-fit-1d-and-2d-gaussian-to-noisy-data).
+%
+% References:
+%   - Kolin DL, Wiseman PW. Cell Biochem Biophys. 2007;49(3):141-64. doi:
+%   10.1007/s12013-007-9000-5. Epub 2007 Oct 2. PMID: 17952641.
+%   - Ashdown G, Pandžić E, Cope A, Wiseman P, Owen D. J Vis Exp. 2015 Dec
+%   17;(106):e53749. doi: 10.3791/53749. PMID: 26709554; PMCID: PMC4694038.
+%
 % Usage: a = gaussfit(corr,type,pixelsize,whitenoise);
 
 %set(gcbf,'pointer','watch');
 
-[X,Y] = meshgrid(-((size(corr,2)-1)/2)*pixelsize:pixelsize:((size(corr,2)-1)/2)*pixelsize,-((size(corr,1)-1)/2)*pixelsize:pixelsize:(size(corr,1)-1)/2*pixelsize);
+[X,Y] = meshgrid(-((size(corr,2)-1)/2)*pixelsize:pixelsize:((size(corr,2)-1)/2)*pixelsize,...
+    -((size(corr,1)-1)/2)*pixelsize:pixelsize:(size(corr,1)-1)/2*pixelsize);
+mg = zeros(size(X,1), size(Y,2), 2); mg(:,:,1)=X; mg(:,:,2) = Y;
 grid = [X Y];
 
 test=(ismember(corr,max(max(corr))));
  for i=1:size(test,3)
-[x,y]=find(test(:,:,i));
-if length(x)>1 
-X0(i,1)=round(mean(x));
-Y0(i,1)=round(mean(y));
-else
-X0(i,1)=x;
-Y0(i,1)=y;
-end
+    [x,y]=find(test(:,:,i));
+    if length(x)>1 
+        X0(i,1)=round(mean(x));
+        Y0(i,1)=round(mean(y));
+    else
+        X0(i,1)=x;
+        Y0(i,1)=y;
+    end
 end
 
 
 X0 = mod(X0,size(corr,2));
 
 % Find X0 and Y0 are where remainder from mod was zero -- these are set to
-%the "max" (ie size) of the corr
+% the "max" (ie size) of the corr
 X0(ismember(X0,0)) = size(corr,2);
 X0(ismember(Y0,0)) = size(corr,1);
 
@@ -44,7 +58,7 @@ end
 % If there's whitenoise, 2 highest values (NB this might be more than
 % two points!) in corr func are set to zero, and given no weight in the fit
 
-if strcmp(whitenoise,'y')&&strcmp(type,'2d')
+if strcmp(whitenoise,'y') && strcmp(type,'2d')
     for j=1:1
             i = find(ismember(corr(:,:,:),max(max(corr(:,:,:)))));
             %ZerChan = i;
@@ -92,7 +106,7 @@ switch lower(type)
             a0xy(1:2) = initguess(i,1:2);
             a0xy(3) = a0xy(2);
             a0xy(4:6) = initguess(i,3:5);
-            a(i,:) = lsqcurvefit(@gauss2dwxy,a0xy,grid,corr(:,:,i).*weights(:,:,i),lb,ub,options,weights(:,:,i));
+            a(i,:) = lsqcurvefit(@gauss2dwxy, a0xy, grid, corr(:,:,i).*weights(:,:,i),lb,ub,options,weights(:,:,i));
         end
     case 'time'
         initguess = [g0 wguess wguess y0 X0 Y0];
@@ -128,7 +142,8 @@ switch lower(type)
             else
                 a0 = a(i-1,:);
             end
-            funlist = {1, @(a,grid) exp(-(    ((grid(:,1:size(grid,2)/2)-a(3))/a(1)).^2  +  ((grid(:,size(grid,2)/2+1:end)-a(4))/a(2)).^2 ) )}; % instead of 0:  grid(:,1:size(grid,2)/2).*grid(:,size(grid,2)/2+1:end)
+            funlist = {1, @(a,grid) exp(-(    ((grid(:,1:size(grid,2)/2)-a(3))/a(1)).^2  +  ((grid(:,size(grid,2)/2+1:end)-a(4))/a(2)).^2 ) )}; 
+            % instead of 0:  grid(:,1:size(grid,2)/2).*grid(:,size(grid,2)/2+1:end)
             NLPstart = [a0(2) a0(3) a0(5) a0(6)];
             warning('off','MATLAB:rankDeficientMatrix');
            %  options = optimset('disp','iter');
@@ -143,8 +158,53 @@ switch lower(type)
             a(i,6) = INLP(4);
             %[a(i,:),res(i),RESIDUAL,EXITFLAG,OUTPUT,LAMBDA] = lsqcurvefit(@gauss2d,a0,grid,corr(:,:,i).*weights(:,:,i),lb,ub,curvefitoptions,weights(:,:,i));
         end
+    case 'rotated'
+        a = zeros(size(corr,3),8);
+        % 2D Rotated Gaussian function ( A requires 6 coefs ).
+        G2DRotated = @(A,X) A(1)*exp( -(...
+            ( X(:,:,1)*cos(A(6))-X(:,:,2)*sin(A(6)) - A(2)*cos(A(6))+A(4)*sin(A(6)) ).^2/(2*A(3)^2) + ... 
+            ( X(:,:,1)*sin(A(6))+X(:,:,2)*cos(A(6)) - A(2)*sin(A(6))-A(4)*cos(A(6)) ).^2/(2*A(5)^2) ) );        
+
+        angleGuess = zeros(size(a,1),1);
+        initguess = [g0 X0 wguess Y0 wguess angleGuess];
+        lb = [0 min(min(grid)) 0 min(min(grid)) 0 0];
+        ub = [];
+        A = zeros(size(corr,3), size(initguess, 2));
+        
+        residuals = zeros(size(corr));
+        for i = 1:size(corr, 3)
+            
+            % Fit data
+            [A(i,:), resnorm, residual, ~,~] = lsqcurvefit(G2DRotated, initguess(i,:), mg , corr(:,:,i), lb, ub, options);
+            a(i,1) = A(i,1); % Max Amplitude 
+            a(i,2) = A(i,3); % Width in X
+            a(i,3) = A(i,5); % Width in Y
+            a(i,4) = 0; % Offset
+            a(i,5) = A(i,2); % Center in X
+            a(i,6) = A(i,4); % Center in Y
+            a(i,7) = A(i,6); % Theta angle in radians
+            a(i,8) = resnorm; % Norm of the residuals (GOF)
+            residuals(:,:,i) = residual;
+        end
+           %% Plot function
+%             A = a(2,:);
+%             Z = A(1)*exp( -(...
+%                 ( mg(:,:,1)*cos(A(7))-mg(:,:,2)*sin(A(7)) - A(5)*cos(A(7))+A(6)*sin(A(7)) ).^2/(2*A(2)^2) + ... 
+%                 ( mg(:,:,1)*sin(A(7))+mg(:,:,2)*cos(A(7)) - A(5)*sin(A(7))-A(6)*cos(A(7)) ).^2/(2*A(3)^2) ) );
+%             surf(X,Y,Z);
+% 
+%             figure;
+%             s = surf(X, Y, corrfn(:,:,2));
+%             s.EdgeColor = 'none';
+%             s.FaceAlpha = 0.75;
+%             hold on;
+%             m = mesh(X, Y, Z);
+%             m.EdgeColor = [0 0 0];
+%             m.FaceAlpha = 0;
+%             hold off;        
+            assignin('base', 'residuals', residuals);
     otherwise
-        error('Fitting mode must be ''2d'', ''time'', or ''timeasym''.');
+        error('Fitting mode must be ''2d'', ''time'', ''timeasym'' or "rotated".');
 end
 
 % If the peak moves "past" the edge of the correlation function, it will

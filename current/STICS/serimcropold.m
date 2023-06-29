@@ -1,4 +1,4 @@
-function [crop,rect] = serimcropold(series);
+function [crop,rect] = serimcropold(series)
 
 % Crops a region of an image series, and outputs a smaller 3D matrix
 % While loop ensures user is satisfied with choice
@@ -8,32 +8,31 @@ ok = 'n';
 figure
 
 while ok == 'n'
-colormap(hot(256));
-imagesc((double(mean(series,3))))
-axis equal
+    colormap(hot(256));
+    imagesc((double(mean(series,3))))
+    axis image
+    title('Please select the region of interest','FontSize',18);
+    [~, rect] = imcrop;
+    close;
+    rect = floor(rect);
 
-title('Please select the region of interest','FontSize',18);
-[im, rect] = imcrop;
-close;
-rect = floor(rect);
+    crop = uint16(zeros(rect(4)+1,rect(3)+1,size(series,3))); % Pre-allocates matrix
 
-crop = uint16(zeros(rect(4)+1,rect(3)+1,size(series,3))); % Pre-allocates matrix
-
-for i=1:size(series,3)
-    crop(:,:,i) = imcrop(series(:,:,i),rect);
-end
+        for i=1:size(series,3)
+            crop(:,:,i) = imcrop(series(:,:,i),rect);
+        end
 
 
-ok = 'y';
-% disp('You have selected the following area')
-% imgmovie(crop,0)
-% ok = input('Are you satisfied? (y/n)', 's');
+    ok = 'y';  
+    % disp('You have selected the following area')
+    % imgmovie(crop,0)
+    % ok = input('Are you satisfied? (y/n)', 's');
 
-% if prime == 1
-%     if or(isprime(size(crop,1)),isprime(size(crop,2)))
-%     errordlg('You have selected an area with a prime dimension.  Please select again.','Fourier Transform Error')
-%     ok = 'n';
-%     end
-% end
+    % if prime == 1
+    %     if or(isprime(size(crop,1)),isprime(size(crop,2)))
+    %     errordlg('You have selected an area with a prime dimension.  Please select again.','Fourier Transform Error')
+    %     ok = 'n';
+    %     end
+    % end
 
 end

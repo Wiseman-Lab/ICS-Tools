@@ -1,134 +1,124 @@
-function [velocityMap,position_x, position_y,position_t,opt]=sticcs_vectormapping(series1,series2,opt)
-
+function [velocityMap, position_x, position_y, position_t, opt] = sticcs_vectormapping(series1,series2,opt)
+%sticcs_vectormapping Calculates Spatio-Temporal Image Correlation
+%Spectroscopy within one (autocorrelation, STICS) or between two time
+%series (cross-correlation, STICCS) and generates a vector map showing the
+%direction and magnitude of the detected flows.
+%
 %Description: this functions takes the timeseries and calculates for defined regions of
 %size 'ROIsize' and 'TOIsize' sticcs (auto- and cross-correlation between two channels) 
 %correlation funstion and fits symmetric Gaussian to extract the flow in x and y directions...
-
 %Developed by Elvis Pandzic 2012-2014 under supervision of 
 %Prof. Paul W. Wiseman @ McGill University. 
 % correspondence addressed to : e.pandzic@unsw.edu.au
 
 
-tic
-% Look at opt structure and either assign default value, or use passed
-% value
-if nargin==2 
-    opt.pixelSize = 0.1; % just initialize it to something so the code below doesn't throw an error
-end
-
-
-if ~isfield(opt, 'pixelSize'), opt.pixelSize = 0.1031 ; end % in micrometers
-if ~isfield(opt, 'timeFrame'), opt.timeFrame = 10; end %time delay (s) between subsequent frames
-if ~isfield(opt, 'timeDelay'), opt.timeDelay = 0; end %extra time delay (s) between two channels
-if ~isfield(opt, 'tauLimit'), opt.tauLimit = 20; end % what is highest time lag to comute stics of TOI
-%filtering: choose 'FourierWhole','MovingAverage','butterIIR','none'
-if ~isfield(opt, 'filtering'), opt.filtering ='FourierWhole'; end 
-if ~isfield(opt, 'MoveAverage'), opt.MoveAverage = 21; end
-if ~isfield(opt, 'fitRadius'), opt.fitRadius = 5; end  % how many pixels (radius) are considered around the peak of corr fn when fitting 2D Gaussian 
-if ~isfield(opt, 'omegaThreshold'), opt.omegaThreshold = 15; end % how big (pixels) do you allow the radius of corr fn to be...removes wide corr fns...
-if ~isfield(opt, 'threshVector'), opt.threshVector = 8; end % what is the threshold delta(v) (um/s) used in discarding spurious vectors
-%if ~isfield(opt, 'threshVectorDotProd'), opt.threshVectorDotProd = 0.5; end
-if ~isfield(opt, 'ROIsize'), opt.ROIsize = 16; end % ROI size in pixels
-if ~isfield(opt, 'ROIshift'), opt.ROIshift = 4; end %what is ROI centers shift in pixels
-if ~isfield(opt, 'TOIsize'), opt.TOIsize = 60; end % what is TOI size in frames
-if ~isfield(opt, 'TOIshift'), opt.TOIshift = 1; end %how much is TOI shifted
-if ~isfield(opt, 'axisTitle'), opt.axisTitle = 'TwoColorVelocityMap F-actin and PM'; end %what will be used on vector map title
-if ~isfield(opt, 'outputName'), opt.outputName = 'TwoColorVelocityMap F-actin and PM'; end %output file name
-if ~isfield(opt, 'path'), opt.path ='C:\Users\YOGA-PW\Dropbox (Wiseman Research)\Data_Elvis\STICCSOutput'; end
-if ~isfield(opt, 'exportimages'), opt.exportimages ='y'; end %'y' if you want export a pdf of every vector map, 'n' if you do not
-if ~isfield(opt, 'imagesformat'), opt.imagesformat ='png'; end % 'png' or 'pdf' images...can add other option (formats) in plotSingleVectorMap code
-if ~isfield(opt, 'movieformat'), opt.movieformat ='mp4'; end % movie format can be avi, jpeg or mp4
-
-
-
-
-along_y = floor((size(series1,2)-opt.ROIsize)/opt.ROIshift)+1;
-along_x = floor((size(series1,1)-opt.ROIsize)/opt.ROIshift)+1;
-along_t = floor((size(series1,3)-opt.TOIsize)/opt.TOIshift)+1;
-
 % shift of ROI's amount
-fracROIshift=opt.ROIsize/opt.ROIshift;
-fracTOIshift=opt.TOIsize/opt.TOIshift;
-position_x  =   zeros(1,along_x);
-position_y  =   zeros(1,along_y);
-position_t  =   zeros(1,along_t);
+fracROIshift = opt.ROIsize/opt.ROIshift;
+fracTOIshift = opt.TOIsize/opt.TOIshift;
+
+along_x = floor( (size(series1,1) - opt.ROIsize) / opt.ROIshift) + 1;
+along_y = floor( (size(series1,2) - opt.ROIsize) / opt.ROIshift) + 1;
+along_t = floor( (size(series1,3) - opt.TOIsize) / opt.TOIshift) + 1;
+
+position_x = zeros(1, along_x);
+position_y = zeros(1, along_y);
+position_t = zeros(1, along_t);
 
 % defining all of the ROI centers positons in x and y
-for i=1:along_x
-position_x(i) = 1/2 + (i-1)/fracROIshift*opt.ROIsize +  opt.ROIsize/2;
+for i = 1:along_x
+    position_x(i) = 1/2 + (i-1)/fracROIshift*opt.ROIsize +  opt.ROIsize/2;
 end
-position_x=repmat(position_x,along_y,1);
-position_x=position_x';
-for j=1:along_y
-position_y(j) = 1/2 + (j-1)/fracROIshift*opt.ROIsize + opt.ROIsize/2;
-end
-position_y=repmat(position_y,along_x,1);
+position_x = repmat(position_x,along_y,1);
+position_x = position_x';
 
+for j = 1:along_y
+    position_y(j) = 1/2 + (j-1)/fracROIshift*opt.ROIsize + opt.ROIsize/2;
+end
+position_y = repmat(position_y,along_x,1);
 
+if isempty(opt.maskCell)
+    opt.maskCell = selectCellMaskFromAverageImage(series1, series2);
+% % This section was commented out because it is now included in the
+% setupSTICS.m code and in the selectCellMaskFromAverageImage.m function.
+% Rodrigo Migueles March 2021.
+%
+% %pre-process to determine if you want to analyse the whole FOV or select a
+% %polygon to analyze...in case of polygon, it will speed up the whole
+% %calcualations because less ROI-TOI to consider...
+% imcomp(mean(series1,3), mean(series2,3), 'y'); 
+% prompt = {'Do you want to select the polygon (y) or use whole FOV (n)?'};
+%     dlg_title = 'y or n';
+%     num_lines = 1;
+%     def = {'y'};
+%     answer = inputdlg(prompt,dlg_title,num_lines,def);
+% if strcmp(answer,'y')
+% maskCell=[];
+% while isempty(maskCell)
+%     [~,~,maskCell,poly1.x,poly1.y]=roipoly;
+% end
+% elseif strcmp(answer,'n')
+%     maskCell=ones(size(series1,1),size(series1,2));
+% end
+% close
+end
 
-%pre-process to determine if you want to analyse the whole FOV or select a
-%polygon to analyze...in case of polygon, it will speed up the whole
-%calcualations because less ROI-TOI to consider...
-imcomp(mean(series1,3),mean(series2,3),'y'); 
-prompt = {'want to select the polygon or use whole FOV?'};
-    dlg_title = 'y or n';
-    num_lines = 1;
-    def = {'y'};
-    answer = inputdlg(prompt,dlg_title,num_lines,def);
-if strcmp(answer,'y')
-maskCell=[];
-while isempty(maskCell)
-    [x,y,maskCell,poly1.x,poly1.y]=roipoly;
+vectorPositions = zeros(size(position_x,1), size(position_x,2));
+for w = 1:size(position_x, 1)
+    for s = 1:size(position_x, 2)
+        coorx = round(position_x(w,s,1));
+        coory = round(position_y(w,s,1));
+        if (opt.maskCell(coorx,coory) == 1)
+            vectorPositions(w,s) = 1;
+        end
+    end
 end
-elseif strcmp(answer,'n')
-    maskCell=ones(size(series1,1),size(series1,2));
-end
-close
-postouse=zeros(along_x,along_y);
-for w=1:along_x
-for s=1:along_y
-  indx=1+(w-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((w-1)/fracROIshift)));
-  indy=1+(s-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((s-1)/fracROIshift)));  
-  indx = floor(indx);
-  indy = floor(indy);
-if(maskCell(indx,indy)==1)
-postouse(w,s)=1;
-end
-end
-end
-opt.postouse=postouse;
-opt.maskCell=maskCell;
+
+% There were 2 different ways to create the vecctors positions arrays (once
+% called postouse), this is the one found in stics_vectormapping (assuming is older) RM
+% 2021.
+% vectorPositions=zeros(along_x,along_y);
+% for w=1:along_x
+% for s=1:along_y
+%   indx = 1+(w-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((w-1)/fracROIshift)));
+%   indy = 1+(s-1)/fracROIshift*opt.ROIsize:(opt.ROIsize*(1+((s-1)/fracROIshift)));  
+%   indx = floor(indx);
+%   indy = floor(indy);
+% if(maskCell(indx,indy)==1)
+% vectorPositions(w,s)=1;
+% end
+% end
+% end
+opt.postouse = vectorPositions;
 
 %immobile filter data
 if strcmp(opt.filtering,'FourierWhole')
-   series1= immfilter(series1,'F',1);
-   series2= immfilter(series2,'F',1);
+   series1 = immfilter(series1,'F',1);
+   series2 = immfilter(series2,'F',1);
 elseif strcmp(opt.filtering,'MovingAverage')
-   series1= immfilter(series1,opt.MoveAverage);
-   series2= immfilter(series2,opt.MoveAverage);
+   series1 = immfilter(series1,opt.MoveAverage);
+   series2 = immfilter(series2,opt.MoveAverage);
 elseif strcmp(opt.filtering,'butterIIR')
     %set the cutoff frequency to be the 2*sampling frequency / size of the series 
     % this way we will certainly removed the immobile component
-   series1= butterIIR(series1, 2/(opt.timeFrame*size(series1,3)),'none');
-   series2= butterIIR(series2, 2/(opt.timeFrame*size(series2,3)),'none');
+   series1 = butterIIR(series1, 2/(opt.timeFrame*size(series1,3)),'none');
+   series2 = butterIIR(series2, 2/(opt.timeFrame*size(series2,3)),'none');
 elseif strcmp(opt.filtering,'none')
 else
-       error('Please select a valid filter (''FourierWhole'' ,''MovingAverage'' , ''butterIIR'' or ''none'')');
-         
+       error('Please select a valid filter (''FourierWhole'' ,''MovingAverage'' , ''butterIIR'' or ''none'')');     
 end
 
 % %indexes of ROI within the mask of interest (polygon)
-[iroi jroi]=find(postouse);
+[iroi, jroi] = find(vectorPositions);
 
 for k=1:along_t % loop along time
     % position of TOI centers in time
     position_t(k) = 1/2 + (k-1)/fracTOIshift*opt.TOIsize + opt.TOIsize/2;
-      % define whole FOV TOI
-    TOIFOV1=series1(:,:,floor(1+(k-1)/fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/fracTOIshift))));
-    TOIFOV2=series2(:,:,floor(1+(k-1)/fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/fracTOIshift)))); 
+    % define whole FOV TOI
+    TOIFOV1 = series1(:,:,floor(1+(k-1)/fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/fracTOIshift))));
+    TOIFOV2 = series2(:,:,floor(1+(k-1)/fracTOIshift*opt.TOIsize):floor(opt.TOIsize*(1+((k-1)/fracTOIshift)))); 
     % define the average FOV TOI image that will be used in the display of the vector maps
-    velocityMap{1,k}.data_raw=mean(TOIFOV1,3);
-    velocityMap{2,k}.data_raw=mean(TOIFOV2,3);
+    velocityMap{1,k}.data_raw = mean(TOIFOV1,3);
+    velocityMap{2,k}.data_raw = mean(TOIFOV2,3);
   
     
     tStart = tic; % added MM
@@ -144,9 +134,9 @@ for k=1:along_t % loop along time
         regionanalyse2=TOIFOV2((1+(i-1)/fracROIshift*opt.ROIsize):(opt.ROIsize*(1+((i-1)/fracROIshift))),(1+(j-1)/fracROIshift*opt.ROIsize):(opt.ROIsize*(1+((j-1)/fracROIshift))),:);
                   
         %apply regular sticcs 
-        [corrfn12 corrfn21 corrfn1 corrfn2]=stics(regionanalyse1,regionanalyse2,opt.tauLimit);
+        [corrfn12, corrfn21, corrfn1, corrfn2]=stics(regionanalyse1,regionanalyse2,opt.tauLimit);
          
-        if size(corrfn1,3)>1
+        if size(corrfn1, 3)>1
         %do plain symmetric gaussian fit to data
         [coeffGtime1] = gaussfit(corrfn1,'time',opt.pixelSize,'n',opt.fitRadius);
         % Discards some lags of the correlation functions if they have

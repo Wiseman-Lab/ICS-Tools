@@ -62,7 +62,7 @@ guidata(hObject, handles);
 % uiwait(handles.figure1);
 handles.in=length(varargin)-1; %0 if one input, 1 if 2 inputs
 handles.sc = 0;
-handles.colorcm = 'pink';
+handles.colorcm = 'parula';
 handles.stack1 = varargin{1};
 handles.totim = size(handles.stack1,3);
 if handles.in==0
@@ -189,12 +189,14 @@ if handles.sc == 0
     if handles.in==0
     imagesc(handles.image1)
     axis on, colormap(handles.colorcm)
+    colorbar, axis image
     
    % axis on, axis image, colormap(handles.colorcm)
     elseif handles.in==1 || handles.in==2
       if strcmp(handles.mode,'c')  
           imagesc(handles.image1)
           axis on, colormap(handles.colorcm)
+          colorbar, axis image
       elseif strcmp(handles.mode,'s')
           surf(double(handles.image1))
           set(gca,'view',[95.5           64])%[-0.5000   50.0000]);%[ -78.5000   78.0000]) 
@@ -269,12 +271,15 @@ case 'Pink'
    handles.colorcm = 'pink';
 case 'Bone'
    handles.colorcm = 'bone';
+case 'Parula'
+   handles.colorcm = 'parula';
 case '2Ch=rg'
    handles.colorcm = 'rg';
 case '2Ch=rb'
    handles.colorcm = 'rb';
 case '2Ch=gb'
    handles.colorcm = 'gb';
+
 end
 showim(handles)
 guidata(hObject,handles)
